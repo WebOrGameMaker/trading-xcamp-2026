@@ -1,0 +1,7 @@
+# Small universe for local smoke testing only.
+name: dev
+description: Minimal ticker set for pipeline validation
+tickers:
+  - AAPL
+  - MSFT
+  - SPY

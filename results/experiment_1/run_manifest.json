@@ -1,0 +1,106 @@
+{
+  "generated_at": "2026-07-27T04:11:25.426666+00:00",
+  "config_path": "configs/default.yaml",
+  "winner": "random_forest",
+  "runs": [
+    {
+      "model_type": "xgboost",
+      "run_id": "20260727_041036",
+      "train_rows": 313337,
+      "val_rows": 57536,
+      "test_rows": 44428,
+      "feature_columns": [
+        "return_1d",
+        "return_5d",
+        "return_20d",
+        "price_sma10_ratio",
+        "price_sma20_ratio",
+        "price_sma50_ratio",
+        "price_ema12_ratio",
+        "price_ema26_ratio",
+        "macd_pct",
+        "macd_signal_pct",
+        "macd_hist_pct",
+        "rsi_14",
+        "stoch_k",
+        "stoch_d",
+        "bb_width",
+        "atr_pct",
+        "volatility_20d",
+        "obv_zscore_60",
+        "volume_sma_ratio"
+      ],
+      "generalization_gap": "overfitting"
+    },
+    {
+      "model_type": "lightgbm",
+      "run_id": "20260727_041044",
+      "train_rows": 313337,
+      "val_rows": 57536,
+      "test_rows": 44428,
+      "feature_columns": [
+        "return_1d",
+        "return_5d",
+        "return_20d",
+        "price_sma10_ratio",
+        "price_sma20_ratio",
+        "price_sma50_ratio",
+        "price_ema12_ratio",
+        "price_ema26_ratio",
+        "macd_pct",
+        "macd_signal_pct",
+        "macd_hist_pct",
+        "rsi_14",
+        "stoch_k",
+        "stoch_d",
+        "bb_width",
+        "atr_pct",
+        "volatility_20d",
+        "obv_zscore_60",
+        "volume_sma_ratio"
+      ],
+      "generalization_gap": "overfitting"
+    },
+    {
+      "model_type": "random_forest",
+      "run_id": "20260727_041051",
+      "train_rows": 313337,
+      "val_rows": 57536,
+      "test_rows": 44428,
+      "feature_columns": [
+        "return_1d",
+        "return_5d",
+        "return_20d",
+        "price_sma10_ratio",
+        "price_sma20_ratio",
+        "price_sma50_ratio",
+        "price_ema12_ratio",
+        "price_ema26_ratio",
+        "macd_pct",
+        "macd_signal_pct",
+        "macd_hist_pct",
+        "rsi_14",
+        "stoch_k",
+        "stoch_d",
+        "bb_width",
+        "atr_pct",
+        "volatility_20d",
+        "obv_zscore_60",
+        "volume_sma_ratio"
+      ],
+      "generalization_gap": "overfitting"
+    }
+  ],
+  "data": {
+    "universe_file": "sp100_tickers.yaml",
+    "train_end_date": "2022-12-31",
+    "val_start_date": "2023-01-01",
+    "val_end_date": "2024-12-31",
+    "test_start_date": "2025-01-01"
+  },
+  "labels": {
+    "horizon_days": 5,
+    "mode": "cross_sectional",
+    "positive_quantile": 0.2
+  }
+}

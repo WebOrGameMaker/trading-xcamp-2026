@@ -1,0 +1,63 @@
+data:
+  start_date: "2010-01-01"
+  end_date: null
+  train_end_date: "2022-12-31"
+  val_start_date: "2023-01-01"
+  val_end_date: "2024-12-31"
+  test_start_date: "2025-01-01"
+  timeframe: "1Day"
+  min_bars: 200
+  universe_file: "dev_tickers.yaml"
+
+labels:
+  horizon_days: 5
+  mode: cross_sectional
+  positive_quantile: 0.20
+  min_cross_section: 3
+  threshold: 0.0
+
+features:
+  indicator_set: standard
+
+model:
+  scope: pooled
+  type: xgboost
+  include_ticker: false
+  walk_forward: false
+  train_ratio: 0.70
+  val_ratio: 0.15
+  test_ratio: 0.15
+  random_state: 42
+  hyperparams:
+    xgboost:
+      n_estimators: 50
+      max_depth: 4
+      learning_rate: 0.1
+      subsample: 0.8
+      colsample_bytree: 0.8
+
+strategy:
+  mode: long_short
+  long_positions: 1
+  short_positions: 1
+  long_gross_exposure: 0.50
+  short_gross_exposure: 0.50
+  max_weight_per_symbol: 0.5
+  rebalance_frequency: weekly
+  # Legacy long-only, threshold-gated mode (mode: long_only)
+  entry_threshold: 0.55
+  max_positions: 3
+  long_entry_threshold: 0.60
+  short_entry_threshold: 0.40
+  probability_column: probability
+
+backtest:
+  initial_cash: 100000
+  commission_bps: 1.0
+  slippage_bps: 5.0
+  benchmark_symbol: SPY
+
+execution:
+  dry_run: true
+  paper: true
+  max_order_value: 10000

@@ -1,1 +1,166 @@
-# trading-xcamp-2026
+# AI Trading Bot — trading-xcamp-2026
+
+An AI-powered stock trading system that predicts 5-day forward return direction for S&P 100 equities, ranks the universe weekly to run a market-neutral long/short strategy, backtests it with vectorbt, and executes paper trades via Alpaca.
+
+## Architecture
+
+```
+download → features → train → backtest → paper-trade → dashboard
+```
+
+| Module | Path | Responsibility |
+|--------|------|----------------|
+| Data | `src/data/` | yfinance download, cleaning, parquet cache |
+| Features | `src/features/` | pandas-ta indicators, cross-sectional 5-day labels |
+| Models | `src/models/` | Pooled cross-sectional XGBoost / LightGBM / RF training & evaluation |
+| Strategy | `src/strategy/` | Signal generation, risk limits, portfolio weights |
+| Backtesting | `src/backtesting/` | vectorbt engine, Sharpe / drawdown metrics |
+| Execution | `src/execution/` | Alpaca paper trading with dry-run mode |
+| Dashboard | `src/dashboard/` | Streamlit + Plotly monitoring |
+
+## Quick Start
+
+### 1. Environment
+
+Requires **Python 3.13+**.
+
+```bash
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 2. Configuration
+
+Historical market data is downloaded from Yahoo Finance and does **not** require API keys.
+
+For paper trading and live dashboard positions, copy and edit `.env`:
+
+```bash
+cp .env.example .env
+# Edit .env with your Alpaca paper trading keys
+```
+
+Get free paper trading keys at [Alpaca Paper Dashboard](https://app.alpaca.markets/paper/dashboard/overview).
+
+### 3. Run Pipeline
+
+For a quick smoke test with 3 symbols, use the dev config:
+
+```bash
+python main.py --config configs/dev.yaml download
+python main.py --config configs/dev.yaml features
+python main.py --config configs/dev.yaml train
+python main.py --config configs/dev.yaml backtest
+python main.py --config configs/dev.yaml paper-trade --dry-run
+```
+
+Full S&P 100 pipeline:
+# Full pipeline
+python main.py pipeline
+
+# Or step by step
+python main.py download
+python main.py features
+python main.py train --model xgboost
+python main.py backtest
+python main.py paper-trade --dry-run
+python main.py dashboard
+```
+
+### 4. Tests
+
+```bash
+pytest tests/ -v
+```
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `download` | Fetch daily OHLCV for S&P 100 from yfinance |
+| `features` | Engineer indicators and cross-sectional 5-day labels |
+| `train` | Train one pooled classifier (xgboost, lightgbm, random_forest) |
+| `backtest` | Run vectorbt backtest on test period |
+| `paper-trade` | Rebalance paper portfolio (use `--dry-run` for safety) |
+| `dashboard` | Launch Streamlit monitoring UI |
+| `pipeline` | Run download → features → train → backtest |
+
+## Configuration
+
+- Global settings: [`configs/default.yaml`](configs/default.yaml)
+- Dev smoke test (3 symbols): [`configs/dev.yaml`](configs/dev.yaml)
+- S&P 100 tickers: [`configs/sp100_tickers.yaml`](configs/sp100_tickers.yaml)
+
+Key parameters:
+
+- **Data:** 2010–present daily bars; train through 2022, validate 2023–2024, out-of-sample test from 2025
+- **Label:** Cross-sectional — top 20% of 5-day forward returns within each date → class 1 (configurable via `labels.positive_quantile`)
+- **Model scope:** One pooled classifier trained on all tickers simultaneously (probabilities are directly comparable for ranking)
+- **Strategy:** Weekly cross-sectional rank rebalance — long the top 10 symbols by predicted probability, short the bottom 10 (pure rank, no confidence gating), 50% gross long / 50% gross short (market-neutral)
+- **Backtest:** $100k initial, 1 bps commission + 5 bps slippage
+
+### Train / validation / test splits
+
+`calendar_split()` (`src/data/splits.py`) produces three chronological slices on the pooled panel:
+
+- **Train** — all rows on or before `train_end_date` (2022-12-31), with the last `horizon_days` trading dates purged so forward labels cannot leak into validation.
+- **Val** — `val_start_date`–`val_end_date` (2023–2024), similarly purged at the tail.
+- **Test** — everything from `test_start_date` (2025-01-01) onward. This is the true out-of-sample holdout that the weekly long/short backtest runs against (`predictions_test.parquet`); the model never sees this data during training.
+
+## Team Workflow (Suggested)
+
+| Student | Modules | Week |
+|---------|---------|------|
+| A | `src/data/`, configs | 1 |
+| B | `src/features/`, label tests | 1 |
+| C | `src/models/`, `src/strategy/` | 2 |
+| D | `src/backtesting/`, `src/execution/`, dashboard | 2–3 |
+| All | Integration, README, end-to-end testing | 3 |
+
+**Branch strategy:** feature branches off `main`, PR review before merge.
+
+## Evaluation Metrics
+
+**Classification:** Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC
+
+**Cross-sectional:** Information Coefficient (Spearman), top-decile hit rate, mean forward return by prediction decile
+
+**Trading:** Total Return, Annualized Return, Sharpe Ratio, Max Drawdown, Win Rate, Profit Factor, Turnover
+
+## Known Limitations
+
+- S&P 100 list is point-in-time approximate (survivorship bias)
+- Daily bars only (no intraday)
+- Paper trading only — no live money
+- High classification accuracy does not guarantee profitability
+- The long/short backtest applies symmetric commission/slippage bps to both legs but does not model short borrow fees, hard-to-borrow constraints, or margin interest
+- A legacy long-only, threshold-gated mode (`strategy.mode: long_only`) is retained in the code for comparison but is not the default
+
+## Project Structure
+
+```
+src/
+  data/          # download, clean, cache
+  features/      # indicators + labels
+  models/        # train, evaluate, persist
+  strategy/      # signals, risk, portfolio
+  backtesting/   # vectorbt + metrics
+  execution/     # Alpaca paper trading
+  dashboard/     # Streamlit app
+  utils/         # config, logging, paths
+tests/
+configs/
+models/          # gitignored — saved models
+data/            # gitignored — parquet cache
+logs/            # gitignored — eval reports
+main.py
+```
+
+## License
+
+Educational project — XCamp 2026.
