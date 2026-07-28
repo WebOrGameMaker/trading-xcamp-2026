@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.models.evaluator import compute_ece, evaluate_classifier
+from src.models.evaluator import compute_ece, evaluate_classifier, evaluate_regressor
 
 
 def test_evaluate_classifier_reports_brier_score() -> None:
@@ -103,3 +103,24 @@ def test_evaluate_classifier_single_class_skips_probability_metrics() -> None:
     assert metrics.ece == 0.0
     assert metrics.calibration_bins == []
     assert metrics.reliability_bins == []
+
+
+def test_evaluate_regressor_perfect_fit() -> None:
+    """Identical predictions yield zero error and R² = 1."""
+    y_true = np.array([0.01, -0.02, 0.03, 0.0])
+    metrics = evaluate_regressor(y_true, y_true.copy())
+    assert metrics.rmse == 0.0
+    assert metrics.mae == 0.0
+    assert metrics.r2 == 1.0
+    assert metrics.support == 4
+
+
+def test_evaluate_regressor_reports_positive_rmse() -> None:
+    """A constant wrong prediction has positive RMSE and non-perfect R²."""
+    y_true = np.array([0.01, -0.02, 0.03, 0.0, 0.05])
+    y_pred = np.zeros_like(y_true)
+    metrics = evaluate_regressor(y_true, y_pred)
+    assert metrics.rmse > 0.0
+    assert metrics.mae > 0.0
+    assert metrics.r2 < 1.0
+    assert metrics.support == 5

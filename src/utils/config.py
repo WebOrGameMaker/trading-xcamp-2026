@@ -52,6 +52,9 @@ class ModelConfig:
 
     scope: str = "pooled"
     type: str = "xgboost"
+    # classification: train on binary top-quantile label
+    # regression: train on continuous forward_return_{h}d
+    task: str = "regression"
     include_ticker: bool = False
     walk_forward: bool = False
     train_ratio: float = 0.70

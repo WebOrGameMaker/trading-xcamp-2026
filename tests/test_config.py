@@ -17,6 +17,7 @@ def test_load_default_config() -> None:
     assert config.model.scope == "pooled"
     assert config.model.include_ticker is False
     assert config.model.type == "xgboost"
+    assert config.model.task == "regression"
     assert config.strategy.max_positions == 10
     assert config.data.start_date == "2010-01-01"
     assert config.data.train_end_date == "2022-12-31"

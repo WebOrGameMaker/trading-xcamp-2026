@@ -1,0 +1,510 @@
+{
+  "scope": "pooled",
+  "model_type": "xgboost",
+  "run_id": "20260728_024213",
+  "created_at": "2026-07-28T02:42:17.854660+00:00",
+  "symbol_count": 1,
+  "artifacts": [
+    {
+      "symbol": "pooled",
+      "model_path": "D:\\Yutang\\projects\\trading-xcamp-2026\\models\\pooled\\xgboost_20260728_024217.joblib",
+      "metadata_path": "D:\\Yutang\\projects\\trading-xcamp-2026\\models\\pooled\\xgboost_20260728_024217.json",
+      "model_type": "xgboost",
+      "feature_columns": [
+        "atr_pct",
+        "return_5d",
+        "volatility_20d",
+        "price_sma10_ratio",
+        "stoch_d",
+        "volume_sma_ratio",
+        "macd_hist_pct",
+        "bb_width",
+        "return_1d",
+        "obv_zscore_60",
+        "stoch_k",
+        "price_sma50_ratio",
+        "macd_signal_pct",
+        "macd_pct",
+        "price_sma20_ratio"
+      ],
+      "train_rows": 313337,
+      "val_rows": 57536,
+      "test_rows": 44428,
+      "created_at": "20260728_024217",
+      "metrics": {
+        "task": "regression",
+        "target": "forward_return_5d",
+        "train": {
+          "rmse": 0.03800826971322775,
+          "mae": 0.02654388539870757,
+          "r2": 0.11890041876015056,
+          "support": 313337,
+          "roc_auc": 0.5777979199307247,
+          "pr_auc": 0.2778635636285459,
+          "cross_sectional": {
+            "ic_overall": 0.16457120317245613,
+            "ic_mean_daily": 0.09813301801878753,
+            "ic_std_daily": 0.1908346873080764,
+            "top_decile_hit_rate": 0.3516949152542373,
+            "mean_return_by_prediction_decile": [
+              {
+                "decile": 1,
+                "mean_forward_return": -0.013628871064632097,
+                "count": 31334
+              },
+              {
+                "decile": 2,
+                "mean_forward_return": -0.0005012262982820553,
+                "count": 31334
+              },
+              {
+                "decile": 3,
+                "mean_forward_return": 0.00030666618873854387,
+                "count": 31333
+              },
+              {
+                "decile": 4,
+                "mean_forward_return": 0.0009888293078012314,
+                "count": 31334
+              },
+              {
+                "decile": 5,
+                "mean_forward_return": 0.0014781138814550941,
+                "count": 31334
+              },
+              {
+                "decile": 6,
+                "mean_forward_return": 0.0025567901849258296,
+                "count": 31333
+              },
+              {
+                "decile": 7,
+                "mean_forward_return": 0.0031313696209677323,
+                "count": 31334
+              },
+              {
+                "decile": 8,
+                "mean_forward_return": 0.004123849536311441,
+                "count": 31333
+              },
+              {
+                "decile": 9,
+                "mean_forward_return": 0.007459999774699666,
+                "count": 31334
+              },
+              {
+                "decile": 10,
+                "mean_forward_return": 0.024461496738278677,
+                "count": 31334
+              }
+            ]
+          }
+        },
+        "val": {
+          "rmse": 0.038787808503373426,
+          "mae": 0.02785863608623378,
+          "r2": -0.007857304525626496,
+          "support": 57536,
+          "roc_auc": 0.5386661235624831,
+          "pr_auc": 0.23997344291943346,
+          "cross_sectional": {
+            "ic_overall": 0.032448258840710696,
+            "ic_mean_daily": 0.019247819050520386,
+            "ic_std_daily": 0.15925524710212288,
+            "top_decile_hit_rate": 0.27049731182795705,
+            "mean_return_by_prediction_decile": [
+              {
+                "decile": 1,
+                "mean_forward_return": 0.004030741720970692,
+                "count": 5754
+              },
+              {
+                "decile": 2,
+                "mean_forward_return": 0.0016315353867379068,
+                "count": 5754
+              },
+              {
+                "decile": 3,
+                "mean_forward_return": 0.0029210115943972426,
+                "count": 5753
+              },
+              {
+                "decile": 4,
+                "mean_forward_return": 0.0010843962439389433,
+                "count": 5754
+              },
+              {
+                "decile": 5,
+                "mean_forward_return": 0.001910309954609838,
+                "count": 5753
+              },
+              {
+                "decile": 6,
+                "mean_forward_return": 0.0017819217057941197,
+                "count": 5754
+              },
+              {
+                "decile": 7,
+                "mean_forward_return": 0.003472790736995164,
+                "count": 5753
+              },
+              {
+                "decile": 8,
+                "mean_forward_return": 0.004128222513755182,
+                "count": 5754
+              },
+              {
+                "decile": 9,
+                "mean_forward_return": 0.005748018889808033,
+                "count": 5753
+              },
+              {
+                "decile": 10,
+                "mean_forward_return": 0.007858975312146617,
+                "count": 5754
+              }
+            ]
+          }
+        },
+        "test": {
+          "rmse": 0.047627632325932374,
+          "mae": 0.03363855652437632,
+          "r2": -0.01192248505701854,
+          "support": 44428,
+          "roc_auc": 0.5179216920254535,
+          "pr_auc": 0.23910678200967073,
+          "cross_sectional": {
+            "ic_overall": 0.023929237376706384,
+            "ic_mean_daily": -0.0007113016310837064,
+            "ic_std_daily": 0.18255624927893552,
+            "top_decile_hit_rate": 0.2950391644908616,
+            "mean_return_by_prediction_decile": [
+              {
+                "decile": 1,
+                "mean_forward_return": 0.006590176765442846,
+                "count": 4443
+              },
+              {
+                "decile": 2,
+                "mean_forward_return": 0.0006193021182858791,
+                "count": 4443
+              },
+              {
+                "decile": 3,
+                "mean_forward_return": 0.002159197157591889,
+                "count": 4443
+              },
+              {
+                "decile": 4,
+                "mean_forward_return": 0.0018386117181222335,
+                "count": 4442
+              },
+              {
+                "decile": 5,
+                "mean_forward_return": 0.0016705044475813244,
+                "count": 4443
+              },
+              {
+                "decile": 6,
+                "mean_forward_return": 0.001694446107819363,
+                "count": 4443
+              },
+              {
+                "decile": 7,
+                "mean_forward_return": 0.002935598472520868,
+                "count": 4442
+              },
+              {
+                "decile": 8,
+                "mean_forward_return": 0.003149455756910635,
+                "count": 4443
+              },
+              {
+                "decile": 9,
+                "mean_forward_return": 0.003804773771181324,
+                "count": 4443
+              },
+              {
+                "decile": 10,
+                "mean_forward_return": 0.010725517414029934,
+                "count": 4443
+              }
+            ]
+          }
+        },
+        "generalization_gap": "overfitting",
+        "feature_importance": {
+          "return_5d": 0.08800654858350754,
+          "atr_pct": 0.079277902841568,
+          "price_sma10_ratio": 0.0744485855102539,
+          "return_1d": 0.07215521484613419,
+          "price_sma20_ratio": 0.07074063271284103,
+          "macd_signal_pct": 0.06506399065256119,
+          "volume_sma_ratio": 0.0650588795542717,
+          "stoch_d": 0.06335299462080002,
+          "volatility_20d": 0.06296440958976746,
+          "obv_zscore_60": 0.062336575239896774,
+          "macd_hist_pct": 0.06193925440311432,
+          "macd_pct": 0.059703197330236435,
+          "bb_width": 0.05926588550209999,
+          "stoch_k": 0.05900910496711731,
+          "price_sma50_ratio": 0.05667681246995926
+        },
+        "shap_importance": {
+          "atr_pct": 0.0013710618950426579,
+          "stoch_k": 0.0007692300714552402,
+          "bb_width": 0.0006173185538500547,
+          "macd_hist_pct": 0.0005112906219437718,
+          "macd_signal_pct": 0.0005085476441308856,
+          "price_sma50_ratio": 0.00046787806786596775,
+          "return_1d": 0.0004657497920561582,
+          "obv_zscore_60": 0.00040939170867204666,
+          "volatility_20d": 0.00034841051092371345,
+          "macd_pct": 0.0003468416107352823,
+          "volume_sma_ratio": 0.0002968820044770837,
+          "stoch_d": 0.0002715064329095185,
+          "price_sma20_ratio": 0.000255877006566152,
+          "return_5d": 0.00023735118156764656,
+          "price_sma10_ratio": 0.00022064894437789917
+        }
+      }
+    }
+  ],
+  "metrics": {
+    "task": "regression",
+    "target": "forward_return_5d",
+    "train": {
+      "rmse": 0.03800826971322775,
+      "mae": 0.02654388539870757,
+      "r2": 0.11890041876015056,
+      "support": 313337,
+      "roc_auc": 0.5777979199307247,
+      "pr_auc": 0.2778635636285459,
+      "cross_sectional": {
+        "ic_overall": 0.16457120317245613,
+        "ic_mean_daily": 0.09813301801878753,
+        "ic_std_daily": 0.1908346873080764,
+        "top_decile_hit_rate": 0.3516949152542373,
+        "mean_return_by_prediction_decile": [
+          {
+            "decile": 1,
+            "mean_forward_return": -0.013628871064632097,
+            "count": 31334
+          },
+          {
+            "decile": 2,
+            "mean_forward_return": -0.0005012262982820553,
+            "count": 31334
+          },
+          {
+            "decile": 3,
+            "mean_forward_return": 0.00030666618873854387,
+            "count": 31333
+          },
+          {
+            "decile": 4,
+            "mean_forward_return": 0.0009888293078012314,
+            "count": 31334
+          },
+          {
+            "decile": 5,
+            "mean_forward_return": 0.0014781138814550941,
+            "count": 31334
+          },
+          {
+            "decile": 6,
+            "mean_forward_return": 0.0025567901849258296,
+            "count": 31333
+          },
+          {
+            "decile": 7,
+            "mean_forward_return": 0.0031313696209677323,
+            "count": 31334
+          },
+          {
+            "decile": 8,
+            "mean_forward_return": 0.004123849536311441,
+            "count": 31333
+          },
+          {
+            "decile": 9,
+            "mean_forward_return": 0.007459999774699666,
+            "count": 31334
+          },
+          {
+            "decile": 10,
+            "mean_forward_return": 0.024461496738278677,
+            "count": 31334
+          }
+        ]
+      }
+    },
+    "val": {
+      "rmse": 0.038787808503373426,
+      "mae": 0.02785863608623378,
+      "r2": -0.007857304525626496,
+      "support": 57536,
+      "roc_auc": 0.5386661235624831,
+      "pr_auc": 0.23997344291943346,
+      "cross_sectional": {
+        "ic_overall": 0.032448258840710696,
+        "ic_mean_daily": 0.019247819050520386,
+        "ic_std_daily": 0.15925524710212288,
+        "top_decile_hit_rate": 0.27049731182795705,
+        "mean_return_by_prediction_decile": [
+          {
+            "decile": 1,
+            "mean_forward_return": 0.004030741720970692,
+            "count": 5754
+          },
+          {
+            "decile": 2,
+            "mean_forward_return": 0.0016315353867379068,
+            "count": 5754
+          },
+          {
+            "decile": 3,
+            "mean_forward_return": 0.0029210115943972426,
+            "count": 5753
+          },
+          {
+            "decile": 4,
+            "mean_forward_return": 0.0010843962439389433,
+            "count": 5754
+          },
+          {
+            "decile": 5,
+            "mean_forward_return": 0.001910309954609838,
+            "count": 5753
+          },
+          {
+            "decile": 6,
+            "mean_forward_return": 0.0017819217057941197,
+            "count": 5754
+          },
+          {
+            "decile": 7,
+            "mean_forward_return": 0.003472790736995164,
+            "count": 5753
+          },
+          {
+            "decile": 8,
+            "mean_forward_return": 0.004128222513755182,
+            "count": 5754
+          },
+          {
+            "decile": 9,
+            "mean_forward_return": 0.005748018889808033,
+            "count": 5753
+          },
+          {
+            "decile": 10,
+            "mean_forward_return": 0.007858975312146617,
+            "count": 5754
+          }
+        ]
+      }
+    },
+    "test": {
+      "rmse": 0.047627632325932374,
+      "mae": 0.03363855652437632,
+      "r2": -0.01192248505701854,
+      "support": 44428,
+      "roc_auc": 0.5179216920254535,
+      "pr_auc": 0.23910678200967073,
+      "cross_sectional": {
+        "ic_overall": 0.023929237376706384,
+        "ic_mean_daily": -0.0007113016310837064,
+        "ic_std_daily": 0.18255624927893552,
+        "top_decile_hit_rate": 0.2950391644908616,
+        "mean_return_by_prediction_decile": [
+          {
+            "decile": 1,
+            "mean_forward_return": 0.006590176765442846,
+            "count": 4443
+          },
+          {
+            "decile": 2,
+            "mean_forward_return": 0.0006193021182858791,
+            "count": 4443
+          },
+          {
+            "decile": 3,
+            "mean_forward_return": 0.002159197157591889,
+            "count": 4443
+          },
+          {
+            "decile": 4,
+            "mean_forward_return": 0.0018386117181222335,
+            "count": 4442
+          },
+          {
+            "decile": 5,
+            "mean_forward_return": 0.0016705044475813244,
+            "count": 4443
+          },
+          {
+            "decile": 6,
+            "mean_forward_return": 0.001694446107819363,
+            "count": 4443
+          },
+          {
+            "decile": 7,
+            "mean_forward_return": 0.002935598472520868,
+            "count": 4442
+          },
+          {
+            "decile": 8,
+            "mean_forward_return": 0.003149455756910635,
+            "count": 4443
+          },
+          {
+            "decile": 9,
+            "mean_forward_return": 0.003804773771181324,
+            "count": 4443
+          },
+          {
+            "decile": 10,
+            "mean_forward_return": 0.010725517414029934,
+            "count": 4443
+          }
+        ]
+      }
+    },
+    "generalization_gap": "overfitting",
+    "feature_importance": {
+      "return_5d": 0.08800654858350754,
+      "atr_pct": 0.079277902841568,
+      "price_sma10_ratio": 0.0744485855102539,
+      "return_1d": 0.07215521484613419,
+      "price_sma20_ratio": 0.07074063271284103,
+      "macd_signal_pct": 0.06506399065256119,
+      "volume_sma_ratio": 0.0650588795542717,
+      "stoch_d": 0.06335299462080002,
+      "volatility_20d": 0.06296440958976746,
+      "obv_zscore_60": 0.062336575239896774,
+      "macd_hist_pct": 0.06193925440311432,
+      "macd_pct": 0.059703197330236435,
+      "bb_width": 0.05926588550209999,
+      "stoch_k": 0.05900910496711731,
+      "price_sma50_ratio": 0.05667681246995926
+    },
+    "shap_importance": {
+      "atr_pct": 0.0013710618950426579,
+      "stoch_k": 0.0007692300714552402,
+      "bb_width": 0.0006173185538500547,
+      "macd_hist_pct": 0.0005112906219437718,
+      "macd_signal_pct": 0.0005085476441308856,
+      "price_sma50_ratio": 0.00046787806786596775,
+      "return_1d": 0.0004657497920561582,
+      "obv_zscore_60": 0.00040939170867204666,
+      "volatility_20d": 0.00034841051092371345,
+      "macd_pct": 0.0003468416107352823,
+      "volume_sma_ratio": 0.0002968820044770837,
+      "stoch_d": 0.0002715064329095185,
+      "price_sma20_ratio": 0.000255877006566152,
+      "return_5d": 0.00023735118156764656,
+      "price_sma10_ratio": 0.00022064894437789917
+    }
+  }
+}

@@ -1,28 +1,40 @@
-# Research Presentation — Pooled XGBoost Cross-Sectional Strategy
+# Research Presentation — Pooled Cross-Sectional Long-Short Strategy
 
-This document lays out the research question, hypotheses, and experiments for a presentation on the project's AI-powered cross-sectional equity trading system: a pooled XGBoost model that ranks S&P 100 stocks and drives a weekly long-short portfolio. Everything below is scoped to what the current codebase can actually run — no invented features, models, or data sources.
+This document lays out the research question, hypotheses, and experiments for a presentation on the project's AI-powered cross-sectional equity trading system: a pooled tree model that ranks S&P 100 stocks each week and drives a top-10 / bottom-10 long-short portfolio. Everything below is scoped to what the current codebase can actually run — no invented features, models, or data sources.
 
 ## Overall Research Question
 
-> Can a pooled, cross-sectional XGBoost classifier trained on standard technical indicators generate statistically robust and economically exploitable rank information across S&P 100 equities out-of-sample, and does the choice of model family, probability calibration, and confidence-based trade gating meaningfully affect the resulting strategy's risk-adjusted (Sharpe) performance?
+> Can a pooled, cross-sectional tree model trained on standard technical indicators generate economically exploitable weekly rankings of S&P 100 equities out-of-sample (predicting 5-day forward returns), and does the choice of model family, feature subset, probability calibration, and confidence-based trade gating meaningfully affect the resulting top-10 / bottom-10 long-short strategy's risk-adjusted (Sharpe) performance?
 
 ---
 
 ## Hypotheses
 
-### H1 — Model Family and Ranking Skill
+### H1 — Model Family, Ranking Quality, and Strategy Performance
 
-| Field                  | Detail                                                                                                                                                                                                    |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Null hypothesis        | ROC-AUC, PR-AUC, and Information Coefficient (IC) on the test split do not differ meaningfully across pooled XGBoost, LightGBM, and Random Forest classifiers under matched features, labels, and splits. |
-| Alternative hypothesis | At least one gradient-boosted model (XGBoost or LightGBM) exceeds Random Forest on these metrics.                                                                                                         |
-| Independent variables  | `model.type` (`xgboost`, `lightgbm`, `random_forest`) — features, labels, and calendar splits held constant.                                                                                              |
-| Dependent variables    | ROC-AUC, PR-AUC, Brier score, IC, top-decile hit rate (test split).                                                                                                                                       |
-| Evaluation metrics     | `evaluate_classifier()` outputs and the `evaluate_cross_sectional()` bundle.                                                                                                                              |
-| Expected outcome       | A small but directional edge for boosted trees; overall skill is likely modest given the noisy, weak-signal nature of daily technical features.                                                           |
-| Codebase support       | `main.py train --model`; `src/models/trainer.py::_build_classifier`; `src/models/evaluator.py`; `src/models/cross_sectional.py`; `tests/test_evaluator.py`; `tests/test_cross_sectional.py`.              |
+| Field                  | Detail                                                                                                                                                                                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Null hypothesis        | Under matched universe, features, labels, calendar splits, weekly rebalance, and top-10 / bottom-10 construction, pooled XGBoost, LightGBM, Random Forest, and CatBoost do not differ meaningfully on ranking quality (IC, top-decile hit rate) or on long-short trading metrics (Sharpe, annualized return, max drawdown). |
+| Alternative hypothesis | At least one model family is materially better on ranking quality and/or realized strategy performance.                                                                                                                                                                |
+| Independent variables  | `model.type` (`xgboost`, `lightgbm`, `random_forest`, `catboost`) with `model.task: regression` — features, continuous target, splits, and portfolio construction held constant.                                                                                      |
+| Dependent variables    | Ranking: Spearman IC (overall / mean daily), top-decile hit rate, ROC-AUC, PR-AUC. Trading: annualized return, Sharpe ratio, max drawdown, win rate, profit factor, turnover.                                                                                         |
+| Evaluation metrics     | `evaluate_cross_sectional()` / `evaluate_regressor()` helpers; identical `run_backtest_on_predictions(..., strategy=long_short)`. Practical materiality: ΔSharpe ≥ 0.10 or Δ annualized return ≥ 2pp; ranking: Δ mean-daily IC ≥ 0.005; IC IR as a stability check. |
+| Expected outcome       | Modest absolute skill given noisy daily technical features; boosted trees may edge Random Forest on ranking, but trading metrics decide the production model.                                                                                                          |
+| Codebase support       | `scripts/run_experiment1.py`; `src/models/trainer.py::_build_regressor`; `src/models/evaluator.py`; `src/models/cross_sectional.py`; `src/backtesting/engine.py::run_backtest_on_predictions`.                                                                         |
 
-### H2 — Calibration Quality
+### H2 — Feature Family Ablation and Selection
+
+| Field                  | Detail                                                                                                                                                                                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Null hypothesis        | Under fixed pooled XGBoost, matched splits/labels, and identical weekly top-10 / bottom-10 long-short construction, ranking quality and trading performance do not differ meaningfully across feature subsets derived from the current technical set. |
+| Alternative hypothesis | At least one reduced or regrouped feature set materially improves test Sharpe and/or mean-daily IC relative to the full 19-feature baseline.                                                                                                                           |
+| Independent variables  | Feature arm / subset (Stage A family ablation; Stage B importance pruning). Model type, task, splits, labels, and portfolio construction held constant.                                                                                                                |
+| Dependent variables    | Ranking: Spearman IC (overall / mean daily), IC IR, top-decile hit rate, ROC-AUC, PR-AUC. Trading: annualized return, Sharpe, max drawdown, win rate, profit factor, turnover.                                                                                         |
+| Evaluation metrics     | Same Exp 1 bundle via `evaluate_cross_sectional` / `evaluate_regressor` and identical `run_backtest_on_predictions(..., strategy=long_short)`. Materiality: ΔSharpe ≥ 0.10 or Δ ann. return ≥ 2pp; Δ mean-daily IC ≥ 0.005.                                           |
+| Expected outcome       | The full set is likely redundant; a smaller economically coherent subset (e.g. returns + volatility) may match or beat Full by reducing overfitting. Absolute skill may remain modest.                                                                                 |
+| Codebase support       | `scripts/run_experiment2.py`; `src/features/families.py`; `src/models/trainer.py` (`feature_columns` override); `src/backtesting/engine.py::run_backtest_on_predictions`.                                                                                               |
+
+### H3 — Calibration Quality
 
 | Field                  | Detail                                                                                                                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -34,7 +46,7 @@ This document lays out the research question, hypotheses, and experiments for a 
 | Expected outcome       | Tree ensembles tend to be overconfident at the probability extremes; isotonic/Platt calibration should lower Brier/ECE without materially changing IC.                                                             |
 | Codebase support       | `src/models/calibration.py`; `src/models/calibration_analysis.py::run_calibration_analysis`; `tests/test_calibration.py`; `tests/test_evaluator.py` (ECE and calibration-bin tests).                               |
 
-### H3 — Confidence-Gated Trading vs. Pure Ranking
+### H4 — Confidence-Gated Trading vs. Pure Ranking
 
 | Field                  | Detail                                                                                                                                                                                                                                                                                                                           |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -52,30 +64,55 @@ This document lays out the research question, hypotheses, and experiments for a 
 
 Each experiment maps directly onto one hypothesis.
 
-### Experiment 1 — Model Family and Ranking Skill
+### Experiment 1 — Model Family, Ranking Quality, and Strategy Performance
 
-- **Objective:** Determine whether the choice of pooled classifier (XGBoost, LightGBM, or Random Forest) materially changes classification quality and cross-sectional ranking skill under otherwise identical features, labels, and splits.
+- **Objective:** Isolate whether the choice of pooled tree model family materially changes weekly cross-sectional ranking quality and the realized performance of an identical S&P 100 top-10 / bottom-10 long-short strategy.
 - **Hypothesis tested:** H1.
-- **Experimental setup:** Using `configs/default.yaml` (S&P 100 universe, 2010–2022 train / 2023–2024 val / 2025+ test, cross-sectional top-20% 5-day forward-return labels, the 18-feature standard indicator set), train three pooled classifiers via `python main.py train --model {xgboost,lightgbm,random_forest}`, each producing `predictions_{train,val,test}.parquet`.
-- **Models compared:** Pooled XGBoost (default hyperparameters), pooled LightGBM (matched hyperparameters), pooled Random Forest (matched depth/estimator budget).
-- **Dataset:** S&P 100 (`configs/sp100_tickers.yaml`), daily bars from 2010–present, calendar split per `configs/default.yaml`.
-- **Features used:** The 18 standard technical indicators from `get_feature_columns()` — 1/5/20-day returns, price/SMA and price/EMA ratios, MACD (line/signal/histogram, price-normalized), RSI(14), stochastic %K/%D, Bollinger Band width, ATR%, 20-day realized volatility, OBV z-score, and volume/SMA ratio.
-- **Evaluation methodology:** For each model, compute classification metrics (Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC, Brier) on train/val/test via `evaluate_classifier`; compute the cross-sectional bundle (IC, top-decile hit rate) via `evaluate_cross_sectional` on test; compare the three model types head-to-head on identical data.
-- **Success criteria:** A clear, reportable ranking among the three model types on ROC-AUC, PR-AUC, and IC — even if the absolute differences are small — sufficient to recommend a model family for the rest of the pipeline.
+- **Experimental setup:** Using `configs/default.yaml` (S&P 100, calendar splits 2010–2022 / 2023–2024 / 2025+, continuous `forward_return_5d`, standard technical features, `strategy.mode: long_short`, weekly rebalance, 10 long / 10 short), train four pooled regressors via `python scripts/run_experiment1.py`. Each model's weekly ranks feed the **same** trading pipeline (`run_backtest_on_predictions`). No threshold tuning, calibration, or confidence gating.
+- **Models compared:** Pooled XGBoost, LightGBM, Random Forest, CatBoost — matched depth/estimator budgets where applicable; ranking score = predicted 5-day forward return.
+- **Dataset:** S&P 100 (`configs/sp100_tickers.yaml`), daily bars from 2010–present, splits per `configs/default.yaml`; last 5 train/val dates purged for label leakage.
+- **Features used:** The standard technical indicators from `get_feature_columns()` — 1/5/20-day returns, price/SMA and price/EMA ratios, MACD (line/signal/histogram, price-normalized), RSI(14), stochastic %K/%D, Bollinger Band width, ATR%, 20-day realized volatility, OBV z-score, and volume/SMA ratio.
+- **Evaluation methodology:**
+  1. **Model / ranking quality** on train/val/test: IC (overall), mean daily IC, top-decile hit rate, ROC-AUC, PR-AUC (score vs top-20% label).
+  2. **Trading performance** on val and test via the shared long-short pipeline: annualized return, Sharpe, max drawdown, win rate, profit factor, turnover.
+  3. Head-to-head comparison answering: best rankings? best portfolio? differences material (ΔSharpe / ΔIC thresholds + IC IR)? which model advances?
+- **Success criteria:** A clear, reproducible model recommendation for later experiments based primarily on **test Sharpe**, with ranking metrics reported as explanatory evidence (ties broken by test mean-daily IC, then top-decile hit rate). Absolute skill may be modest; the experiment succeeds if the comparison isolates model-family effects under a fixed strategy.
 - **Expected figures/tables for the presentation:**
-  - Table: classification metrics × model type × split.
-  - `plot_metric_overview` (report figure 01) per model.
-  - `plot_roc_auc_distribution` (report figure 02).
-  - Table: IC (overall / mean daily / std daily) and top-decile hit rate by model type.
-  - `plot_feature_importance` (report figure 05) for the winning model.
+  - Table: ranking metrics (IC, mean daily IC, top-decile hit rate, ROC-AUC, PR-AUC) × model × split.
+  - Table: trading metrics (ann. return, Sharpe, max DD, win rate, profit factor, turnover) × model × (val/test).
+  - Bars: test Sharpe and annualized return by model.
+  - Cross-sectional IC / hit-rate comparison.
+  - Decile return curves (ranking diagnostics).
+  - Feature importance for the winning model.
+  - Optional equity/drawdown overlay for all four models on test.
 
-### Experiment 2 — Calibration Quality
+### Experiment 2 — Feature Family Ablation and Selection
 
-- **Objective:** Determine whether raw probabilities from the winning model of Experiment 1 need post-hoc calibration, and whether calibration improves probability quality without disturbing rank order.
+- **Objective:** Isolate whether the choice of feature subset (by economic family and/or importance pruning) materially changes weekly ranking quality and the realized performance of an identical S&P 100 top-10 / bottom-10 long-short strategy, holding the model and trading pipeline fixed.
 - **Hypothesis tested:** H2.
-- **Experimental setup:** Using the winning model from Experiment 1, run `python main.py calibrate`, which executes `run_calibration_analysis()`: fits Platt and isotonic calibrators on validation raw scores, then evaluates classification metrics (Brier, ECE, reliability bins) for raw/Platt/isotonic probabilities on both val and test.
+- **Experimental setup:** Fix pooled XGBoost (`model.task: regression`) and `configs/default.yaml` splits/labels/`long_short` weekly top-10 / bottom-10 construction. Run `python scripts/run_experiment2.py`. **Stage A** trains one model per family arm (`full`, `returns`, `trend`, `momentum`, `volatility`, `volume`, `returns_volatility`). **Stage B** builds prune arms (`top5`, `top10`, `cum80`) from Full-model train importance and trains them. Best Stage B arm is identified on **val Sharpe**; all arms are reported on frozen test. No calibration, confidence gating, or portfolio-construction changes.
+- **Models compared:** Feature arms only — same pooled XGBoost regressor; ranking score = predicted 5-day forward return.
+- **Dataset:** Same S&P 100 panel and calendar splits as Experiment 1; last 5 train/val dates purged for label leakage.
+- **Features used:** Subsets of the standard 19 technicals, grouped as returns / trend / momentum / volatility / volume (see `src/features/families.py`). Stage B subsets are importance-selected from the Full arm only (never from test).
+- **Evaluation methodology:**
+  1. Ranking metrics on train/val/test per arm (IC, mean daily IC, IC IR, top-decile hit rate, ROC-AUC, PR-AUC).
+  2. Identical long-short backtest on val/test per arm.
+  3. Head-to-head vs Full: which family carries signal? does pruning help? differences material? which feature set advances?
+- **Success criteria:** A clear, reproducible feature-set recommendation for later experiments based primarily on **test Sharpe** (ties: test mean-daily IC, then top-decile hit rate). Absolute skill may remain modest; the experiment succeeds if it isolates feature-composition effects under a fixed model and strategy.
+- **Expected figures/tables for the presentation:**
+  - Table: ranking metrics × feature arm × split.
+  - Table: trading metrics × feature arm × (val/test).
+  - Bars: test Sharpe and mean-daily IC by arm (highlight Full vs best subset).
+  - Full-model feature importance chart (Stage B selection rationale).
+  - Optional: feature correlation heatmap of the 19 technicals.
+
+### Experiment 3 — Calibration Quality
+
+- **Objective:** Determine whether raw probabilities from the winning model/feature configuration of earlier experiments need post-hoc calibration, and whether calibration improves probability quality without disturbing rank order.
+- **Hypothesis tested:** H3.
+- **Experimental setup:** Using the chosen model and feature set from Experiments 1–2, run `python main.py calibrate`, which executes `run_calibration_analysis()`: fits Platt and isotonic calibrators on validation raw scores, then evaluates classification metrics (Brier, ECE, reliability bins) for raw/Platt/isotonic probabilities on both val and test.
 - **Models compared:** The three probability variants of the same trained model — raw, Platt-calibrated, isotonic-calibrated.
-- **Dataset:** `predictions_val.parquet` and `predictions_test.parquet` from Experiment 1's chosen model.
+- **Dataset:** `predictions_val.parquet` and `predictions_test.parquet` from the chosen configuration.
 - **Features used:** None directly — this experiment operates on saved probability outputs, not raw features.
 - **Evaluation methodology:** Brier score and ECE by probability column × split; reliability diagrams via `plot_calibration_curves` (report figure 09); IC recomputed on each probability column to confirm rank-order invariance under calibration.
 - **Success criteria:** A clear, reproducible answer on whether calibration helps, measured against the codebase's own materiality thresholds (ΔBrier > 0.005 or ΔECE > 0.01), with IC essentially unchanged across raw/Platt/isotonic.
@@ -85,12 +122,12 @@ Each experiment maps directly onto one hypothesis.
   - Table: IC by probability column (invariance check).
   - Summary callout: `calibrated_probabilities_materially_better` and `best_calibrator_by_val_brier` from `calibration_trading_report_latest.json`.
 
-### Experiment 3 — Confidence-Gated Trading vs. Pure Ranking
+### Experiment 4 — Confidence-Gated Trading vs. Pure Ranking
 
 - **Objective:** Determine whether gating trades by calibrated probability confidence (`long_short_confidence`) improves realized, out-of-sample risk-adjusted returns relative to pure top/bottom-N ranking (`long_short`).
-- **Hypothesis tested:** H3.
-- **Experimental setup:** Using the same `run_calibration_analysis()` run from Experiment 2, compare its Strategy A (`long_short`, pure ranking) against Strategy B (`long_short_confidence`) swept over the 3 threshold pairs `{(0.60,0.40), (0.65,0.35), (0.70,0.30)}`, selected on validation by Sharpe ratio with a 10-trade floor, and evaluated once, frozen, on test.
-- **Models compared:** `long_short` vs. `long_short_confidence` portfolio construction modes, built on top of the best-calibrated probability column identified in Experiment 2.
+- **Hypothesis tested:** H4.
+- **Experimental setup:** Using the same `run_calibration_analysis()` run from Experiment 3, compare its Strategy A (`long_short`, pure ranking) against Strategy B (`long_short_confidence`) swept over the 3 threshold pairs `{(0.60,0.40), (0.65,0.35), (0.70,0.30)}`, selected on validation by Sharpe ratio with a 10-trade floor, and evaluated once, frozen, on test.
+- **Models compared:** `long_short` vs. `long_short_confidence` portfolio construction modes, built on top of the best-calibrated probability column identified in Experiment 3.
 - **Dataset:** `predictions_val.parquet` (threshold selection) and `predictions_test.parquet` (frozen evaluation).
 - **Features used:** None directly — this is a portfolio-level backtest on frozen predictions.
 - **Evaluation methodology:** `compute_backtest_metrics()` via `run_backtest_on_predictions()` — Sharpe ratio, total trades, win rate, max drawdown, turnover — for Strategy A and for Strategy B at each threshold pair (val sweep) plus the single frozen test result; cross-check against the codebase's own `_build_recommendation()` output.
@@ -106,8 +143,9 @@ Each experiment maps directly onto one hypothesis.
 
 For a coherent, academic-paper-style narrative, present the experiments in this order:
 
-1. **Experiment 1 — "Which model should we trust?"** (H1). Before anything else can be evaluated, the base classifier must be chosen; this establishes which pooled model family produces the strongest classification and ranking skill on identical data.
-2. **Experiment 2 — "Can we trust its probabilities?"** (H2). Once a model is chosen, the next question is whether its raw probability outputs are well-calibrated or need post-hoc correction before they are used to make trading decisions.
-3. **Experiment 3 — "Should we act on confidence?"** (H3). With a calibrated (or confirmed-uncalibrated) probability in hand, this closes the story by testing whether gating trades on that probability's confidence improves realized, out-of-sample risk-adjusted performance versus simply trading the ranks.
+1. **Experiment 1 — "Which model should drive the ranking strategy?"** (H1). Before anything else can be evaluated, the base model must be chosen; this establishes which pooled tree family produces the strongest weekly rankings **and** the best identical top-10 / bottom-10 long-short portfolio performance on matched data.
+2. **Experiment 2 — "Which features should that model use?"** (H2). With the model frozen, this isolates whether feature-family composition or importance pruning improves ranking quality and long-short performance versus the full technical set.
+3. **Experiment 3 — "Can we trust its probabilities?"** (H3). Once model and features are chosen, the next question is whether raw probability outputs are well-calibrated or need post-hoc correction before they are used to make trading decisions.
+4. **Experiment 4 — "Should we act on confidence?"** (H4). With a calibrated (or confirmed-uncalibrated) probability in hand, this closes the story by testing whether gating trades on that probability's confidence improves realized, out-of-sample risk-adjusted performance versus simply trading the ranks.
 
-This progression — **model selection → probability calibration → trading decision rule** — mirrors the structure of a typical empirical-finance research paper and gives the presentation a clear cause-and-effect throughline: each experiment's output is a direct input to the next.
+This progression — **model → features → probability calibration → trading decision rule** — mirrors the structure of a typical empirical-finance research paper and gives the presentation a clear cause-and-effect throughline: each experiment's output is a direct input to the next.

@@ -1,0 +1,8 @@
+{
+  "arm": "volume",
+  "stage": "A",
+  "feature_columns": [
+    "obv_zscore_60",
+    "volume_sma_ratio"
+  ]
+}

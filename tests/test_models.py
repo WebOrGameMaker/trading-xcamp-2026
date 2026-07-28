@@ -2,11 +2,21 @@
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 import src.models.registry as registry
-from src.models.trainer import _aggregate_metrics, _diagnose_generalization_gap, time_based_split
+from src.models.cross_sectional import evaluate_cross_sectional
+from src.models.trainer import (
+    _aggregate_metrics,
+    _build_regressor,
+    _diagnose_generalization_gap,
+    _prepare_xy,
+    time_based_split,
+)
 
 
 def test_time_based_split_preserves_chronology() -> None:
@@ -167,3 +177,88 @@ def test_registry_loads_pooled_model(
     assert pipeline["scope"] == "pooled"
     assert loaded.symbol == "pooled"
     assert loaded.feature_columns == ["return_5d", "rsi_14"]
+
+
+@pytest.mark.parametrize("model_type", ["xgboost", "lightgbm", "random_forest", "catboost"])
+def test_build_regressor_fits_and_predicts(model_type: str) -> None:
+    """Each tree regressor builds, fits, and returns continuous scores."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(80, 3))
+    y = X[:, 0] * 0.1 + rng.normal(scale=0.01, size=80)
+    model = _build_regressor(model_type, {"n_estimators": 10, "max_depth": 3, "random_state": 0})
+    pipeline = Pipeline([("scaler", StandardScaler()), ("regressor", model)])
+    pipeline.fit(X, y)
+    preds = pipeline.predict(X[:5])
+    assert preds.shape == (5,)
+    assert np.isfinite(preds).all()
+
+
+def test_prepare_xy_regression_uses_forward_return() -> None:
+    """Regression task pulls continuous forward returns, not binary labels."""
+    frame = pd.DataFrame({
+        "f1": [1.0, 2.0, 3.0],
+        "label": [0, 1, 0],
+        "forward_return_5d": [0.01, -0.02, 0.03],
+    })
+    X, y = _prepare_xy(frame, ["f1"], task="regression", target_col="forward_return_5d")
+    assert X.shape == (3, 1)
+    assert list(y) == pytest.approx([0.01, -0.02, 0.03])
+
+
+def test_resolve_feature_columns_override_preserves_order() -> None:
+    """Explicit feature_columns override is validated and de-duplicated."""
+    from src.models.trainer import _resolve_feature_columns
+
+    frame = pd.DataFrame({
+        "return_1d": [0.1],
+        "rsi_14": [50.0],
+        "atr_pct": [0.02],
+        "label": [1],
+        "forward_return_5d": [0.01],
+        "close": [100.0],
+    })
+    cols = _resolve_feature_columns(frame, ["rsi_14", "return_1d", "rsi_14"])
+    assert cols == ["rsi_14", "return_1d"]
+
+
+def test_resolve_feature_columns_missing_raises() -> None:
+    from src.models.trainer import _resolve_feature_columns
+
+    frame = pd.DataFrame({"return_1d": [0.1], "close": [100.0]})
+    with pytest.raises(ValueError, match="missing from dataset"):
+        _resolve_feature_columns(frame, ["not_a_feature"])
+
+
+def test_prepare_xy_classification_uses_label() -> None:
+    """Classification task still uses the binary label column."""
+    frame = pd.DataFrame({
+        "f1": [1.0, 2.0, 3.0],
+        "label": [0, 1, 0],
+        "forward_return_5d": [0.01, -0.02, 0.03],
+    })
+    X, y = _prepare_xy(frame, ["f1"], task="classification")
+    assert list(y) == [0, 1, 0]
+
+
+def test_ranking_on_continuous_scores_via_cross_sectional() -> None:
+    """Predicted returns as the score column drive IC / hit-rate evaluation."""
+    rows = []
+    for day in (0, 1):
+        for i, symbol in enumerate(list("ABCDEFGHIJ")):
+            rows.append({
+                "date": pd.Timestamp("2025-01-01") + pd.Timedelta(days=day),
+                "symbol": symbol,
+                "probability": float(i),
+                "forward_return_5d": float(i) / 100.0,
+                "label": int(i >= 8),
+            })
+    result = evaluate_cross_sectional(pd.DataFrame(rows))
+    assert result["ic_overall"] > 0.9
+    assert result["top_decile_hit_rate"] > 0.5
+
+
+def test_diagnose_generalization_gap_regression_overfitting() -> None:
+    """Large train-over-test R² gap is flagged for regression task."""
+    train = {"r2": 0.20, "support": 1000}
+    test = {"r2": 0.01, "support": 200}
+    assert _diagnose_generalization_gap(train, test, task="regression") == "overfitting"

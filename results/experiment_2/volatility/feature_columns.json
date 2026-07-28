@@ -1,0 +1,9 @@
+{
+  "arm": "volatility",
+  "stage": "A",
+  "feature_columns": [
+    "bb_width",
+    "atr_pct",
+    "volatility_20d"
+  ]
+}

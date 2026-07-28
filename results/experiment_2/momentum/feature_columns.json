@@ -1,0 +1,9 @@
+{
+  "arm": "momentum",
+  "stage": "A",
+  "feature_columns": [
+    "rsi_14",
+    "stoch_k",
+    "stoch_d"
+  ]
+}

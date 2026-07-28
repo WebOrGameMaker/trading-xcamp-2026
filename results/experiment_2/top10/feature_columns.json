@@ -1,0 +1,16 @@
+{
+  "arm": "top10",
+  "stage": "B",
+  "feature_columns": [
+    "atr_pct",
+    "return_5d",
+    "volatility_20d",
+    "price_sma10_ratio",
+    "stoch_d",
+    "volume_sma_ratio",
+    "macd_hist_pct",
+    "bb_width",
+    "return_1d",
+    "obv_zscore_60"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "arm": "full",
+  "stage": "A",
+  "feature_columns": [
+    "return_1d",
+    "return_5d",
+    "return_20d",
+    "price_sma10_ratio",
+    "price_sma20_ratio",
+    "price_sma50_ratio",
+    "price_ema12_ratio",
+    "price_ema26_ratio",
+    "macd_pct",
+    "macd_signal_pct",
+    "macd_hist_pct",
+    "rsi_14",
+    "stoch_k",
+    "stoch_d",
+    "bb_width",
+    "atr_pct",
+    "volatility_20d",
+    "obv_zscore_60",
+    "volume_sma_ratio"
+  ]
+}

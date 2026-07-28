@@ -84,7 +84,7 @@ pytest tests/ -v
 |---------|-------------|
 | `download` | Fetch daily OHLCV for S&P 100 from yfinance |
 | `features` | Engineer indicators and cross-sectional 5-day labels |
-| `train` | Train one pooled classifier (xgboost, lightgbm, random_forest) |
+| `train` | Train one pooled regressor (xgboost, lightgbm, random_forest, catboost) on 5-day forward returns |
 | `backtest` | Run vectorbt backtest on test period |
 | `paper-trade` | Rebalance paper portfolio (use `--dry-run` for safety) |
 | `dashboard` | Launch Streamlit monitoring UI |
@@ -99,8 +99,8 @@ pytest tests/ -v
 Key parameters:
 
 - **Data:** 2010–present daily bars; train through 2022, validate 2023–2024, out-of-sample test from 2025
-- **Label:** Cross-sectional — top 20% of 5-day forward returns within each date → class 1 (configurable via `labels.positive_quantile`)
-- **Model scope:** One pooled classifier trained on all tickers simultaneously (probabilities are directly comparable for ranking)
+- **Target:** Continuous 5-day forward return (`forward_return_5d`); models rank names by predicted return. Binary top-20% labels are retained only as a hit-rate evaluation helper (`labels.positive_quantile`).
+- **Model scope:** One pooled regressor trained on all tickers simultaneously (predicted returns are directly comparable for ranking)
 - **Strategy:** Weekly cross-sectional rank rebalance — long the top 10 symbols by predicted probability, short the bottom 10 (pure rank, no confidence gating), 50% gross long / 50% gross short (market-neutral)
 - **Backtest:** $100k initial, 1 bps commission + 5 bps slippage
 

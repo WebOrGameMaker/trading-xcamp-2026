@@ -1,0 +1,14 @@
+{
+  "arm": "trend",
+  "stage": "A",
+  "feature_columns": [
+    "price_sma10_ratio",
+    "price_sma20_ratio",
+    "price_sma50_ratio",
+    "price_ema12_ratio",
+    "price_ema26_ratio",
+    "macd_pct",
+    "macd_signal_pct",
+    "macd_hist_pct"
+  ]
+}

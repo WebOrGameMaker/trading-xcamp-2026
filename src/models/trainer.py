@@ -10,7 +10,8 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from sklearn.ensemble import RandomForestClassifier
+from catboost import CatBoostClassifier, CatBoostRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -27,6 +28,7 @@ from src.models.cross_sectional import evaluate_cross_sectional
 from src.models.evaluator import (
     compute_shap_importance,
     evaluate_classifier,
+    evaluate_regressor,
     extract_feature_importance,
     save_evaluation_report,
 )
@@ -37,12 +39,14 @@ from src.utils.paths import LOG_DIR, MODEL_DIR
 
 logger = get_logger(__name__)
 
+VALID_TASKS = ("classification", "regression")
+
 
 def _build_classifier(model_type: str, hyperparams: dict[str, Any]) -> Any:
     """Instantiate a classifier by type name.
 
     Args:
-        model_type: One of xgboost, lightgbm, random_forest.
+        model_type: One of xgboost, lightgbm, random_forest, catboost.
         hyperparams: Hyperparameter dictionary for the model.
 
     Returns:
@@ -80,6 +84,68 @@ def _build_classifier(model_type: str, hyperparams: dict[str, Any]) -> Any:
             min_samples_leaf=hyperparams.get("min_samples_leaf", 5),
             class_weight=hyperparams.get("class_weight", "balanced"),
             n_jobs=-1,
+        )
+    if model_type == "catboost":
+        return CatBoostClassifier(
+            loss_function="Logloss",
+            random_seed=hyperparams.get("random_state", 42),
+            iterations=hyperparams.get("n_estimators", 200),
+            depth=hyperparams.get("max_depth", 6),
+            learning_rate=hyperparams.get("learning_rate", 0.05),
+            verbose=False,
+            allow_writing_files=False,
+        )
+    raise ValueError(f"Unknown model type: {model_type}")
+
+
+def _build_regressor(model_type: str, hyperparams: dict[str, Any]) -> Any:
+    """Instantiate a regressor by type name.
+
+    Args:
+        model_type: One of xgboost, lightgbm, random_forest, catboost.
+        hyperparams: Hyperparameter dictionary for the model.
+
+    Returns:
+        Unfitted sklearn-compatible regressor.
+    """
+    if model_type == "xgboost":
+        return xgb.XGBRegressor(
+            objective="reg:squarederror",
+            random_state=hyperparams.get("random_state", 42),
+            n_estimators=hyperparams.get("n_estimators", 200),
+            max_depth=hyperparams.get("max_depth", 6),
+            learning_rate=hyperparams.get("learning_rate", 0.05),
+            subsample=hyperparams.get("subsample", 0.8),
+            colsample_bytree=hyperparams.get("colsample_bytree", 0.8),
+        )
+    if model_type == "lightgbm":
+        return lgb.LGBMRegressor(
+            objective="regression",
+            random_state=hyperparams.get("random_state", 42),
+            n_estimators=hyperparams.get("n_estimators", 200),
+            max_depth=hyperparams.get("max_depth", 6),
+            learning_rate=hyperparams.get("learning_rate", 0.05),
+            subsample=hyperparams.get("subsample", 0.8),
+            colsample_bytree=hyperparams.get("colsample_bytree", 0.8),
+            verbose=-1,
+        )
+    if model_type == "random_forest":
+        return RandomForestRegressor(
+            random_state=hyperparams.get("random_state", 42),
+            n_estimators=hyperparams.get("n_estimators", 200),
+            max_depth=hyperparams.get("max_depth", 10),
+            min_samples_leaf=hyperparams.get("min_samples_leaf", 5),
+            n_jobs=-1,
+        )
+    if model_type == "catboost":
+        return CatBoostRegressor(
+            loss_function="RMSE",
+            random_seed=hyperparams.get("random_state", 42),
+            iterations=hyperparams.get("n_estimators", 200),
+            depth=hyperparams.get("max_depth", 6),
+            learning_rate=hyperparams.get("learning_rate", 0.05),
+            verbose=False,
+            allow_writing_files=False,
         )
     raise ValueError(f"Unknown model type: {model_type}")
 
@@ -139,10 +205,30 @@ def time_based_split(
     )
 
 
-def _prepare_xy(df: pd.DataFrame, feature_columns: list[str]) -> tuple[np.ndarray, np.ndarray]:
-    """Extract feature matrix and labels from DataFrame."""
+def _prepare_xy(
+    df: pd.DataFrame,
+    feature_columns: list[str],
+    *,
+    task: str = "classification",
+    target_col: str | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Extract feature matrix and target from DataFrame.
+
+    Args:
+        df: Feature panel with label and/or forward-return columns.
+        feature_columns: Model input columns.
+        task: ``classification`` uses binary ``label``; ``regression`` uses
+            ``target_col`` (continuous forward return).
+        target_col: Forward-return column for regression (required when
+            ``task='regression'``).
+    """
     X = df[feature_columns].values
-    y = df["label"].values.astype(int)
+    if task == "regression":
+        if not target_col:
+            raise ValueError("target_col is required for regression task")
+        y = df[target_col].values.astype(float)
+    else:
+        y = df["label"].values.astype(int)
     return X, y
 
 
@@ -171,6 +257,16 @@ def _metrics_dict(metrics: Any) -> dict[str, Any]:
     }
 
 
+def _regression_metrics_dict(metrics: Any) -> dict[str, Any]:
+    """Convert regression metrics to manifest-friendly values."""
+    return {
+        "rmse": metrics.rmse,
+        "mae": metrics.mae,
+        "r2": metrics.r2,
+        "support": metrics.support,
+    }
+
+
 def _evaluate_probability_sources(
     y_true: np.ndarray,
     probability_map: dict[str, np.ndarray],
@@ -190,10 +286,22 @@ def _evaluate_probability_sources(
 def _diagnose_generalization_gap(
     train_metrics: dict[str, float | int],
     test_metrics: dict[str, float | int],
+    *,
+    task: str = "classification",
 ) -> str:
-    """Classify the train-vs-test accuracy gap for a quick overfit signal."""
+    """Classify the train-vs-test gap for a quick overfit signal."""
     if not train_metrics.get("support") or not test_metrics.get("support"):
         return "no_data"
+
+    if task == "regression":
+        train_r2 = float(train_metrics.get("r2", 0.0))
+        test_r2 = float(test_metrics.get("r2", 0.0))
+        gap = train_r2 - test_r2
+        if gap > 0.05:
+            return "overfitting"
+        if train_r2 < 0.01 and test_r2 < 0.01:
+            return "underfitting_or_no_signal"
+        return "ok"
 
     gap = float(train_metrics["accuracy"]) - float(test_metrics["accuracy"])
     if gap > 0.05:
@@ -291,11 +399,55 @@ def _run_walk_forward(
     return fold_reports
 
 
-def train_model(config: AppConfig) -> None:
+def _resolve_feature_columns(
+    dataset: pd.DataFrame,
+    feature_columns: list[str] | None,
+) -> list[str]:
+    """Return feature columns to train on, validating optional overrides.
+
+    Args:
+        dataset: Feature panel.
+        feature_columns: Optional explicit subset; defaults to all model features.
+
+    Returns:
+        Ordered list of feature column names present in ``dataset``.
+    """
+    available = get_feature_columns(dataset)
+    if not available:
+        raise ValueError("No feature columns found in dataset")
+    if feature_columns is None:
+        return available
+
+    missing = [col for col in feature_columns if col not in dataset.columns]
+    if missing:
+        raise ValueError(f"Requested feature columns missing from dataset: {missing}")
+    non_feature = [col for col in feature_columns if col not in available]
+    if non_feature:
+        raise ValueError(
+            f"Requested columns are not usable model features: {non_feature}"
+        )
+    if not feature_columns:
+        raise ValueError("feature_columns override must be non-empty")
+    # Preserve caller order; drop accidental duplicates.
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for col in feature_columns:
+        if col not in seen:
+            ordered.append(col)
+            seen.add(col)
+    return ordered
+
+
+def train_model(
+    config: AppConfig,
+    feature_columns: list[str] | None = None,
+) -> None:
     """Train, evaluate, and persist a single pooled cross-sectional model.
 
     Args:
         config: Application configuration.
+        feature_columns: Optional explicit feature subset. When None, uses all
+            numeric model features from the processed dataset.
     """
     if config.model.scope != "pooled":
         raise ValueError(
@@ -307,10 +459,186 @@ def train_model(config: AppConfig) -> None:
             "model.include_ticker=true is ignored; ticker identity is omitted from features"
         )
 
+    task = str(config.model.task).lower()
+    if task not in VALID_TASKS:
+        raise ValueError(f"Unknown model.task: {config.model.task!r}; expected one of {VALID_TASKS}")
+
+    if task == "regression":
+        _train_pooled_regressor(config, feature_columns=feature_columns)
+    else:
+        _train_pooled_classifier(config, feature_columns=feature_columns)
+
+
+def _train_pooled_regressor(
+    config: AppConfig,
+    feature_columns: list[str] | None = None,
+) -> None:
+    """Train a pooled tree regressor on continuous forward returns."""
     dataset = load_processed_dataset("features")
-    feature_columns = get_feature_columns(dataset)
-    if not feature_columns:
-        raise ValueError("No feature columns found in dataset")
+    feature_columns = _resolve_feature_columns(dataset, feature_columns)
+
+    horizon = config.labels.horizon_days
+    ret_col = forward_return_column(horizon)
+    if ret_col not in dataset.columns:
+        raise ValueError(f"Dataset missing forward-return column {ret_col}")
+    if "label" not in dataset.columns:
+        raise ValueError("Dataset missing binary label column (needed for hit-rate eval)")
+
+    model_type = config.model.type
+    hp = dict(config.model.hyperparams.get(model_type, {}))
+    hp["random_state"] = config.model.random_state
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+    train_df, val_df, test_df = calendar_split(
+        dataset,
+        train_end_date=config.data.train_end_date,
+        val_start_date=config.data.val_start_date,
+        val_end_date=config.data.val_end_date,
+        test_start_date=config.data.test_start_date,
+        purge_rows=horizon,
+    )
+    if min(len(train_df), len(val_df), len(test_df)) == 0:
+        raise ValueError("One or more calendar splits are empty")
+
+    X_train, y_train = _prepare_xy(
+        train_df, feature_columns, task="regression", target_col=ret_col
+    )
+    if len(y_train) == 0 or not np.isfinite(y_train).any():
+        raise ValueError("Training forward returns are empty or non-finite")
+
+    pipeline = Pipeline([
+        ("scaler", StandardScaler()),
+        ("regressor", _build_regressor(model_type, hp)),
+    ])
+    logger.info(
+        "Training pooled %s regressor on %d samples, %d features, %d symbols "
+        "(target=%s)",
+        model_type,
+        len(X_train),
+        len(feature_columns),
+        train_df["symbol"].nunique(),
+        ret_col,
+    )
+    pipeline.fit(X_train, y_train)
+
+    split_metrics: dict[str, Any] = {}
+    predictions: dict[str, pd.DataFrame] = {}
+    for split_name, split_df in (("train", train_df), ("val", val_df), ("test", test_df)):
+        X_split, y_split = _prepare_xy(
+            split_df, feature_columns, task="regression", target_col=ret_col
+        )
+        y_score = np.asarray(pipeline.predict(X_split), dtype=float)
+        reg_metrics = evaluate_regressor(y_split, y_score)
+        split_block = _regression_metrics_dict(reg_metrics)
+
+        # Ranking quality vs binary top-quantile label (evaluation helper only).
+        # Use ROC/PR-AUC on continuous scores; skip Brier/ECE (scores are not probs).
+        y_label = split_df["label"].values.astype(int)
+        if len(np.unique(y_label)) > 1:
+            from sklearn.metrics import average_precision_score, roc_auc_score
+
+            split_block["roc_auc"] = float(roc_auc_score(y_label, y_score))
+            split_block["pr_auc"] = float(average_precision_score(y_label, y_score))
+        else:
+            split_block["roc_auc"] = 0.0
+            split_block["pr_auc"] = 0.0
+
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        report_path = LOG_DIR / f"eval_{run_id}_pooled_{split_name}.json"
+        with report_path.open("w", encoding="utf-8") as handle:
+            json.dump(
+                {**split_block, "split": split_name, "run_id": run_id, "task": "regression"},
+                handle,
+                indent=2,
+            )
+
+        pred_df = split_df[["date", "symbol", "close", ret_col, "label"]].copy()
+        # ``probability`` is the generic ranking score column used by IC / hit-rate.
+        pred_df["probability"] = y_score
+        pred_df["prediction"] = y_score
+        pred_df = _assign_predicted_rank(pred_df)
+        pred_df = pred_df.sort_values(["date", "symbol"]).reset_index(drop=True)
+        predictions[split_name] = pred_df
+        save_processed_dataset(pred_df, name=f"predictions_{split_name}")
+
+        cs = evaluate_cross_sectional(pred_df)
+        split_block["cross_sectional"] = cs
+        split_metrics[split_name] = split_block
+        logger.info(
+            "%s regression — RMSE: %.5f, MAE: %.5f, R2: %.4f | "
+            "IC daily: %.4f, top-decile hit: %.3f",
+            split_name,
+            split_block["rmse"],
+            split_block["mae"],
+            split_block["r2"],
+            cs.get("ic_mean_daily", 0.0),
+            cs.get("top_decile_hit_rate", 0.0),
+        )
+
+    feature_importance = extract_feature_importance(pipeline, feature_columns)
+    shap_importance = compute_shap_importance(
+        pipeline,
+        val_df[feature_columns],
+        feature_columns,
+        random_state=config.model.random_state,
+    )
+
+    generalization_gap = _diagnose_generalization_gap(
+        split_metrics["train"],
+        split_metrics["test"],
+        task="regression",
+    )
+
+    all_metrics: dict[str, Any] = {
+        "task": "regression",
+        "target": ret_col,
+        "train": split_metrics["train"],
+        "val": split_metrics["val"],
+        "test": split_metrics["test"],
+        "generalization_gap": generalization_gap,
+        "feature_importance": _top_n_features(feature_importance, 20),
+        "shap_importance": _top_n_features(shap_importance, 20),
+    }
+
+    if config.model.walk_forward:
+        logger.warning("Walk-forward is not implemented for regression task; skipping")
+
+    artifact = save_model(
+        pipeline=pipeline,
+        symbol=POOLED_SYMBOL,
+        model_type=model_type,
+        feature_columns=feature_columns,
+        train_rows=len(train_df),
+        val_rows=len(val_df),
+        test_rows=len(test_df),
+        metrics=all_metrics,
+    )
+    manifest_path = save_model_manifest(
+        artifacts=[artifact],
+        model_type=model_type,
+        run_id=run_id,
+        metrics=all_metrics,
+        scope="pooled",
+    )
+    logger.info(
+        "Pooled R2 — train: %.4f, val: %.4f, test: %.4f | "
+        "IC daily test: %.4f | diagnosis: %s",
+        split_metrics["train"]["r2"],
+        split_metrics["val"]["r2"],
+        split_metrics["test"]["r2"],
+        split_metrics["test"]["cross_sectional"].get("ic_mean_daily", 0.0),
+        generalization_gap,
+    )
+    logger.info("Saved pooled regressor and manifest to %s", manifest_path)
+
+
+def _train_pooled_classifier(
+    config: AppConfig,
+    feature_columns: list[str] | None = None,
+) -> None:
+    """Train a pooled tree classifier on binary cross-sectional labels."""
+    dataset = load_processed_dataset("features")
+    feature_columns = _resolve_feature_columns(dataset, feature_columns)
 
     horizon = config.labels.horizon_days
     ret_col = forward_return_column(horizon)
@@ -333,7 +661,7 @@ def train_model(config: AppConfig) -> None:
     if min(len(train_df), len(val_df), len(test_df)) == 0:
         raise ValueError("One or more calendar splits are empty")
 
-    X_train, y_train = _prepare_xy(train_df, feature_columns)
+    X_train, y_train = _prepare_xy(train_df, feature_columns, task="classification")
     if len(np.unique(y_train)) < 2:
         raise ValueError("Training labels have only one class")
 
@@ -358,7 +686,7 @@ def train_model(config: AppConfig) -> None:
     pipeline.fit(X_train, y_train)
 
     # Fit calibrators on validation raw scores only (never on test).
-    X_val, y_val = _prepare_xy(val_df, feature_columns)
+    X_val, y_val = _prepare_xy(val_df, feature_columns, task="classification")
     raw_val_proba = _predict_proba_positive(pipeline, X_val)
     calibrators = fit_calibrators(y_val, raw_val_proba)
     calibrator_path = MODEL_DIR / "pooled" / f"calibrators_{run_id}.joblib"
@@ -368,7 +696,7 @@ def train_model(config: AppConfig) -> None:
     calibration_comparison: dict[str, Any] = {"run_id": run_id, "splits": {}}
     predictions: dict[str, pd.DataFrame] = {}
     for split_name, split_df in (("train", train_df), ("val", val_df), ("test", test_df)):
-        X_split, y_split = _prepare_xy(split_df, feature_columns)
+        X_split, y_split = _prepare_xy(split_df, feature_columns, task="classification")
         y_proba_raw = _predict_proba_positive(pipeline, X_split)
         calibrated = calibrators.transform(y_proba_raw)
         probability_map = {
@@ -448,9 +776,11 @@ def train_model(config: AppConfig) -> None:
     generalization_gap = _diagnose_generalization_gap(
         split_metrics["train"],
         split_metrics["test"],
+        task="classification",
     )
 
     all_metrics: dict[str, Any] = {
+        "task": "classification",
         "train": split_metrics["train"],
         "val": split_metrics["val"],
         "test": split_metrics["test"],

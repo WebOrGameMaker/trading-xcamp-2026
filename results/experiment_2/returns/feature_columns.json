@@ -1,0 +1,9 @@
+{
+  "arm": "returns",
+  "stage": "A",
+  "feature_columns": [
+    "return_1d",
+    "return_5d",
+    "return_20d"
+  ]
+}

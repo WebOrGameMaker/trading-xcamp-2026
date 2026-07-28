@@ -1,0 +1,12 @@
+{
+  "arm": "returns_volatility",
+  "stage": "A",
+  "feature_columns": [
+    "return_1d",
+    "return_5d",
+    "return_20d",
+    "bb_width",
+    "atr_pct",
+    "volatility_20d"
+  ]
+}

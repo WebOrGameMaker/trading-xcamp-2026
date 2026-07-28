@@ -1,11 +1,20 @@
 {
-  "generated_at": "2026-07-27T04:11:25.426666+00:00",
+  "generated_at": "2026-07-27T23:44:42.333238+00:00",
   "config_path": "configs/default.yaml",
-  "winner": "random_forest",
+  "task": "regression",
+  "target": "forward_return_5d",
+  "winner": "xgboost",
+  "winner_rule": "test_sharpe -> ic_mean_daily -> top_decile_hit_rate",
+  "strategy": {
+    "mode": "long_short",
+    "long_positions": 10,
+    "short_positions": 10,
+    "rebalance_frequency": "weekly"
+  },
   "runs": [
     {
       "model_type": "xgboost",
-      "run_id": "20260727_041036",
+      "run_id": "20260727_234321",
       "train_rows": 313337,
       "val_rows": 57536,
       "test_rows": 44428,
@@ -30,11 +39,33 @@
         "obv_zscore_60",
         "volume_sma_ratio"
       ],
-      "generalization_gap": "overfitting"
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": 0.07364420215451539,
+          "sharpe_ratio": 0.9031251924122856,
+          "max_drawdown": 0.09326384814942386,
+          "win_rate": 0.4805491990846682,
+          "profit_factor": 1.1165924236376321,
+          "turnover": 0.6820388349514563,
+          "total_return": 0.14979021886404875,
+          "total_trades": 1748.0
+        },
+        "test": {
+          "annualized_return": -0.02031885267296407,
+          "sharpe_ratio": -0.10685296749180452,
+          "max_drawdown": 0.09070988035724656,
+          "win_rate": 0.48169418521177315,
+          "profit_factor": 0.9773644988610567,
+          "turnover": 0.671604938271605,
+          "total_return": -0.030638840946339063,
+          "total_trades": 1393.0
+        }
+      }
     },
     {
       "model_type": "lightgbm",
-      "run_id": "20260727_041044",
+      "run_id": "20260727_234331",
       "train_rows": 313337,
       "val_rows": 57536,
       "test_rows": 44428,
@@ -59,11 +90,33 @@
         "obv_zscore_60",
         "volume_sma_ratio"
       ],
-      "generalization_gap": "overfitting"
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": 0.05702526145800202,
+          "sharpe_ratio": 0.6811433356027679,
+          "max_drawdown": 0.07048454006955424,
+          "win_rate": 0.47530505520046484,
+          "profit_factor": 1.0876760918665804,
+          "turnover": 0.653883495145631,
+          "total_return": 0.11509159232222022,
+          "total_trades": 1721.0
+        },
+        "test": {
+          "annualized_return": -0.02120841016656594,
+          "sharpe_ratio": -0.10872218765902053,
+          "max_drawdown": 0.10322654103819427,
+          "win_rate": 0.4706308919506889,
+          "profit_factor": 0.9744683552087418,
+          "turnover": 0.6666666666666667,
+          "total_return": -0.03197277993363723,
+          "total_trades": 1379.0
+        }
+      }
     },
     {
       "model_type": "random_forest",
-      "run_id": "20260727_041051",
+      "run_id": "20260727_234337",
       "train_rows": 313337,
       "val_rows": 57536,
       "test_rows": 44428,
@@ -88,7 +141,80 @@
         "obv_zscore_60",
         "volume_sma_ratio"
       ],
-      "generalization_gap": "overfitting"
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": 0.05306445175673291,
+          "sharpe_ratio": 0.6068168793234221,
+          "max_drawdown": 0.07506714782117858,
+          "win_rate": 0.47880597014925375,
+          "profit_factor": 1.0890055995285,
+          "turnover": 0.625728155339806,
+          "total_return": 0.10689886601732623,
+          "total_trades": 1675.0
+        },
+        "test": {
+          "annualized_return": -0.050295399769408555,
+          "sharpe_ratio": -0.29118118502321044,
+          "max_drawdown": 0.14332259760206245,
+          "win_rate": 0.4708994708994709,
+          "profit_factor": 0.9367215789239548,
+          "turnover": 0.6055555555555555,
+          "total_return": -0.07524417613142476,
+          "total_trades": 1323.0
+        }
+      }
+    },
+    {
+      "model_type": "catboost",
+      "run_id": "20260727_234437",
+      "train_rows": 313337,
+      "val_rows": 57536,
+      "test_rows": 44428,
+      "feature_columns": [
+        "return_1d",
+        "return_5d",
+        "return_20d",
+        "price_sma10_ratio",
+        "price_sma20_ratio",
+        "price_sma50_ratio",
+        "price_ema12_ratio",
+        "price_ema26_ratio",
+        "macd_pct",
+        "macd_signal_pct",
+        "macd_hist_pct",
+        "rsi_14",
+        "stoch_k",
+        "stoch_d",
+        "bb_width",
+        "atr_pct",
+        "volatility_20d",
+        "obv_zscore_60",
+        "volume_sma_ratio"
+      ],
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": 0.07687485717006814,
+          "sharpe_ratio": 0.8626181138685228,
+          "max_drawdown": 0.06067103575138341,
+          "win_rate": 0.4706227967097532,
+          "profit_factor": 1.1292063616916965,
+          "turnover": 0.6359223300970875,
+          "total_return": 0.15659607966438527,
+          "total_trades": 1702.0
+        },
+        "test": {
+          "annualized_return": -0.07404273992425381,
+          "sharpe_ratio": -0.48066126027686396,
+          "max_drawdown": 0.18727406976115482,
+          "win_rate": 0.4712308812818645,
+          "profit_factor": 0.908418368356182,
+          "turnover": 0.6395061728395062,
+          "total_return": -0.1100694632702488,
+          "total_trades": 1373.0
+        }
+      }
     }
   ],
   "data": {
@@ -100,7 +226,8 @@
   },
   "labels": {
     "horizon_days": 5,
-    "mode": "cross_sectional",
+    "train_target": "forward_return",
+    "hit_rate_label_mode": "cross_sectional",
     "positive_quantile": 0.2
   }
 }

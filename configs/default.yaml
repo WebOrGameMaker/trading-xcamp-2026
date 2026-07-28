@@ -22,6 +22,8 @@ features:
 model:
   scope: pooled
   type: xgboost
+  # regression: predict continuous forward_return_5d; classification: top-20% label
+  task: regression
   include_ticker: false
   walk_forward: false
   train_ratio: 0.70
@@ -45,6 +47,10 @@ model:
       n_estimators: 200
       max_depth: 10
       min_samples_leaf: 5
+    catboost:
+      n_estimators: 200
+      max_depth: 6
+      learning_rate: 0.05
 
 strategy:
   mode: long_short

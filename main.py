@@ -47,7 +47,7 @@ def _build_parser() -> argparse.ArgumentParser:
     train_parser = subparsers.add_parser("train", help="Train ML model")
     train_parser.add_argument(
         "--model",
-        choices=["xgboost", "lightgbm", "random_forest"],
+        choices=["xgboost", "lightgbm", "random_forest", "catboost"],
         default=None,
         help="Model type override",
     )

@@ -15,7 +15,10 @@ from sklearn.metrics import (
     brier_score_loss,
     confusion_matrix,
     f1_score,
+    mean_absolute_error,
+    mean_squared_error,
     precision_score,
+    r2_score,
     recall_score,
     roc_auc_score,
 )
@@ -42,6 +45,16 @@ class ClassificationMetrics:
     calibration_bins: list[dict[str, float]]
     reliability_bins: list[dict[str, float]]
     ece: float
+
+
+@dataclass
+class RegressionMetrics:
+    """Regression evaluation results for continuous forward-return targets."""
+
+    rmse: float
+    mae: float
+    r2: float
+    support: int
 
 
 def _bin_stats_from_groups(grouped: pd.DataFrame) -> list[dict[str, float]]:
@@ -206,6 +219,32 @@ def evaluate_classifier(
     )
 
 
+def evaluate_regressor(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+) -> RegressionMetrics:
+    """Compute regression metrics for continuous forward-return predictions.
+
+    Args:
+        y_true: Ground-truth forward returns.
+        y_pred: Predicted forward returns.
+
+    Returns:
+        RegressionMetrics dataclass.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    if len(y_true) == 0:
+        return RegressionMetrics(rmse=0.0, mae=0.0, r2=0.0, support=0)
+    mse = float(mean_squared_error(y_true, y_pred))
+    return RegressionMetrics(
+        rmse=float(np.sqrt(mse)),
+        mae=float(mean_absolute_error(y_true, y_pred)),
+        r2=float(r2_score(y_true, y_pred)) if len(y_true) > 1 else 0.0,
+        support=len(y_true),
+    )
+
+
 def save_evaluation_report(
     metrics: ClassificationMetrics,
     split_name: str,
@@ -252,21 +291,21 @@ def extract_feature_importance(pipeline: Any, feature_columns: list[str]) -> dic
     """Extract feature importance from a fitted pipeline if available.
 
     Args:
-        pipeline: Fitted sklearn Pipeline with classifier step.
+        pipeline: Fitted sklearn Pipeline with classifier or regressor step.
         feature_columns: Feature column names.
 
     Returns:
         Mapping of feature name to importance score.
     """
-    classifier = pipeline.named_steps.get("classifier")
-    if classifier is None:
+    estimator = pipeline.named_steps.get("classifier") or pipeline.named_steps.get("regressor")
+    if estimator is None:
         return {}
 
     importances: np.ndarray | None = None
-    if hasattr(classifier, "feature_importances_"):
-        importances = classifier.feature_importances_
-    elif hasattr(classifier, "coef_"):
-        importances = np.abs(classifier.coef_).ravel()
+    if hasattr(estimator, "feature_importances_"):
+        importances = estimator.feature_importances_
+    elif hasattr(estimator, "coef_"):
+        importances = np.abs(estimator.coef_).ravel()
 
     if importances is None or len(importances) != len(feature_columns):
         return {}
@@ -285,10 +324,10 @@ def compute_shap_importance(
     max_samples: int = 1000,
     random_state: int = 42,
 ) -> dict[str, float]:
-    """Compute mean |SHAP| feature importance for a tree classifier.
+    """Compute mean |SHAP| feature importance for a tree model.
 
     Args:
-        pipeline: Fitted sklearn Pipeline with scaler + classifier.
+        pipeline: Fitted sklearn Pipeline with scaler + classifier/regressor.
         X: Feature matrix (unscaled; pipeline scaler is applied inside).
         feature_columns: Feature names aligned with columns of X.
         max_samples: Cap on rows used for SHAP (speed).
@@ -304,9 +343,9 @@ def compute_shap_importance(
         logger.warning("shap is not installed; skipping SHAP importance")
         return {}
 
-    classifier = pipeline.named_steps.get("classifier")
+    estimator = pipeline.named_steps.get("classifier") or pipeline.named_steps.get("regressor")
     scaler = pipeline.named_steps.get("scaler")
-    if classifier is None:
+    if estimator is None:
         return {}
 
     if isinstance(X, pd.DataFrame):
@@ -326,7 +365,7 @@ def compute_shap_importance(
         matrix = scaler.transform(matrix)
 
     try:
-        explainer = shap.TreeExplainer(classifier)
+        explainer = shap.TreeExplainer(estimator)
         shap_values = explainer.shap_values(matrix)
     except Exception as exc:  # noqa: BLE001 — SHAP is best-effort
         logger.warning("SHAP computation failed: %s", exc)
