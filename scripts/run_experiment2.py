@@ -362,7 +362,9 @@ def main() -> None:
         )
 
     metrics_df = _metrics_table(results)
-    cs_df = _cross_sectional_table(results, split="test")
+    cs_test = _cross_sectional_table(results, split="test")
+    cs_val = _cross_sectional_table(results, split="val")
+    cs_df = pd.concat([cs_val, cs_test], ignore_index=True)
     returns_df = _returns_table(results, split="test")
     trading_df = _trading_table(results)
 
@@ -379,7 +381,7 @@ def main() -> None:
     logger.info("Wrote %s", returns_path)
     logger.info("Wrote %s", trading_path)
 
-    winner = _pick_winner(trading_df, cs_df)
+    winner = _pick_winner(trading_df, cs_test)
     best_stage_b = _pick_best_stage_b_by_val(trading_df)
     logger.info("Winning arm (test Sharpe / IC / hit-rate): %s", winner)
 

@@ -32,6 +32,24 @@ SERIES_COLORS: dict[str, str] = {
 REFERENCE_LINE_COLOR = "#444444"
 
 
+def metric_title(title: str, *, higher_better: bool | None) -> str:
+    """Append a higher/lower-is-better cue for single-value metric panels.
+
+    Args:
+        title: Base panel title.
+        higher_better: True → higher is better; False → lower is better;
+            None leaves the title unchanged (non-directional plots).
+
+    Returns:
+        Title string, optionally with a direction subtitle.
+    """
+    if higher_better is True:
+        return f"{title}\n(Higher is better)"
+    if higher_better is False:
+        return f"{title}\n(Lower is better)"
+    return title
+
+
 def apply_style() -> None:
     """Apply the shared seaborn/matplotlib theme used by all report figures."""
     import seaborn as sns

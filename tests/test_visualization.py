@@ -614,48 +614,51 @@ def _sample_experiment2_metrics() -> pd.DataFrame:
 
 
 def _sample_experiment2_cross_sectional() -> pd.DataFrame:
-    return pd.DataFrame([
-        {
-            "arm": "full",
-            "stage": "A",
-            "split": "test",
-            "ic_overall": 0.02,
-            "ic_mean_daily": 0.0,
-            "ic_std_daily": 0.18,
-            "ic_ir": 0.0,
-            "top_decile_hit_rate": 0.29,
-        },
-        {
-            "arm": "returns",
-            "stage": "A",
-            "split": "test",
-            "ic_overall": 0.025,
-            "ic_mean_daily": 0.004,
-            "ic_std_daily": 0.19,
-            "ic_ir": 0.021,
-            "top_decile_hit_rate": 0.30,
-        },
-        {
-            "arm": "volatility",
-            "stage": "A",
-            "split": "test",
-            "ic_overall": 0.03,
-            "ic_mean_daily": 0.008,
-            "ic_std_daily": 0.2,
-            "ic_ir": 0.04,
-            "top_decile_hit_rate": 0.31,
-        },
-        {
-            "arm": "top5",
-            "stage": "B",
-            "split": "test",
-            "ic_overall": 0.028,
-            "ic_mean_daily": 0.006,
-            "ic_std_daily": 0.19,
-            "ic_ir": 0.032,
-            "top_decile_hit_rate": 0.305,
-        },
-    ])
+    rows = []
+    for split, base_ic in (("val", 0.02), ("test", 0.0)):
+        rows.extend([
+            {
+                "arm": "full",
+                "stage": "A",
+                "split": split,
+                "ic_overall": 0.02 + base_ic,
+                "ic_mean_daily": base_ic,
+                "ic_std_daily": 0.18,
+                "ic_ir": 0.0 if base_ic == 0 else base_ic / 0.18,
+                "top_decile_hit_rate": 0.29,
+            },
+            {
+                "arm": "returns",
+                "stage": "A",
+                "split": split,
+                "ic_overall": 0.025 + base_ic,
+                "ic_mean_daily": 0.004 + base_ic,
+                "ic_std_daily": 0.19,
+                "ic_ir": (0.004 + base_ic) / 0.19,
+                "top_decile_hit_rate": 0.30,
+            },
+            {
+                "arm": "volatility",
+                "stage": "A",
+                "split": split,
+                "ic_overall": 0.03 + base_ic,
+                "ic_mean_daily": 0.008 + base_ic,
+                "ic_std_daily": 0.2,
+                "ic_ir": (0.008 + base_ic) / 0.2,
+                "top_decile_hit_rate": 0.31,
+            },
+            {
+                "arm": "top5",
+                "stage": "B",
+                "split": split,
+                "ic_overall": 0.028 + base_ic,
+                "ic_mean_daily": 0.006 + base_ic,
+                "ic_std_daily": 0.19,
+                "ic_ir": (0.006 + base_ic) / 0.19,
+                "top_decile_hit_rate": 0.305,
+            },
+        ])
+    return pd.DataFrame(rows)
 
 
 def _sample_experiment2_trading() -> pd.DataFrame:
@@ -722,6 +725,26 @@ class TestExperiment2Plots:
         assert out_path.exists()
         assert out_path.stat().st_size > 0
 
+    def test_plot_arm_comparison_val_metrics(self, tmp_path) -> None:
+        out_path = tmp_path / "val_metrics.png"
+        result = experiment2_plots.plot_arm_comparison_metrics(
+            _sample_experiment2_metrics(),
+            _sample_experiment2_cross_sectional(),
+            out_path,
+            split="val",
+        )
+        assert result == out_path
+        assert out_path.exists()
+        assert out_path.stat().st_size > 0
+
+    def test_plot_arm_comparison_trading_val(self, tmp_path) -> None:
+        out_path = tmp_path / "trading_val.png"
+        experiment2_plots.plot_arm_comparison_trading(
+            _sample_experiment2_trading(), out_path, split="val"
+        )
+        assert out_path.exists()
+        assert out_path.stat().st_size > 0
+
     def test_generate_experiment2_figures_end_to_end(self, tmp_path) -> None:
         results_dir = tmp_path / "experiment_2"
         _write_experiment2_fixture(results_dir)
@@ -731,8 +754,11 @@ class TestExperiment2Plots:
         figures_dir = results_dir / "figures"
         expected = {
             "arm_comparison_test_metrics.png",
+            "arm_comparison_val_metrics.png",
             "arm_comparison_cross_sectional.png",
+            "arm_comparison_cross_sectional_val.png",
             "arm_comparison_trading.png",
+            "arm_comparison_trading_val.png",
             "full_feature_importance.png",
         }
         written_names = {path.name for path in written}

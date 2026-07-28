@@ -21,6 +21,7 @@ from src.visualization.style import (
     FIGSIZE_WIDE,
     REFERENCE_LINE_COLOR,
     apply_style,
+    metric_title,
     save_figure,
 )
 
@@ -164,25 +165,27 @@ def plot_model_comparison_test_metrics(
     has_r2 = "r2" in test.columns and test["r2"].notna().any()
     if has_r2:
         metrics_to_plot = [
-            ("ic_mean_daily", "Test IC (mean daily)", cs["ic_mean_daily"], 0.0),
-            ("top_decile_hit_rate", "Test top-decile hit rate", cs["top_decile_hit_rate"], 0.2),
-            ("r2", "Test R²", test["r2"], 0.0),
+            ("ic_mean_daily", "Test IC (mean daily)", cs["ic_mean_daily"], 0.0, True),
+            ("top_decile_hit_rate", "Test top-decile hit rate", cs["top_decile_hit_rate"], 0.2, True),
+            ("r2", "Test R²", test["r2"], 0.0, True),
         ]
     else:
         metrics_to_plot = [
-            ("roc_auc", "Test ROC-AUC", test["roc_auc"], 0.5),
-            ("pr_auc", "Test PR-AUC", test["pr_auc"], 0.2),
-            ("ic_mean_daily", "Test IC (mean daily)", cs["ic_mean_daily"], 0.0),
+            ("roc_auc", "Test ROC-AUC", test["roc_auc"], 0.5, True),
+            ("pr_auc", "Test PR-AUC", test["pr_auc"], 0.2, True),
+            ("ic_mean_daily", "Test IC (mean daily)", cs["ic_mean_daily"], 0.0, True),
         ]
 
     fig, axes = plt.subplots(1, 3, figsize=(13, 5))
-    for ax, (key, title, series, baseline) in zip(axes, metrics_to_plot, strict=True):
+    for ax, (key, title, series, baseline, higher_better) in zip(
+        axes, metrics_to_plot, strict=True
+    ):
         values = [float(series.get(m, 0.0)) for m in model_order]
         colors = [MODEL_COLORS.get(m, "#7f7f7f") for m in model_order]
         bars = ax.bar([MODEL_LABELS.get(m, m) for m in model_order], values, color=colors)
         ax.bar_label(bars, fmt="%.3f", padding=3)
         ax.axhline(baseline, color=REFERENCE_LINE_COLOR, linestyle="--", linewidth=1)
-        ax.set_title(title)
+        ax.set_title(metric_title(title, higher_better=higher_better))
         ax.tick_params(axis="x", rotation=20)
 
     fig.suptitle("Experiment 1 — Model Comparison (Test Split)", fontweight="bold")
@@ -202,11 +205,11 @@ def plot_model_comparison_metrics_by_split(
 
     has_r2 = "r2" in metrics_df.columns and metrics_df["r2"].notna().any()
     if has_r2:
-        metric_specs = (("r2", "R²"), ("rmse", "RMSE"))
+        metric_specs = (("r2", "R²", True), ("rmse", "RMSE", False))
         baselines = (0.0, None)
         suptitle = "Experiment 1 — Regression Metrics by Split"
     else:
-        metric_specs = (("roc_auc", "ROC-AUC"), ("pr_auc", "PR-AUC"))
+        metric_specs = (("roc_auc", "ROC-AUC", True), ("pr_auc", "PR-AUC", True))
         baselines = (0.5, 0.2)
         suptitle = "Experiment 1 — Classification Metrics by Split"
 
@@ -214,7 +217,9 @@ def plot_model_comparison_metrics_by_split(
     x = np.arange(len(splits))
     width = 0.8 / max(len(model_order), 1)
 
-    for ax, (metric, title), baseline in zip(axes, metric_specs, baselines, strict=True):
+    for ax, (metric, title, higher_better), baseline in zip(
+        axes, metric_specs, baselines, strict=True
+    ):
         for i, model_type in enumerate(model_order):
             subset = metrics_df[metrics_df["model_type"] == model_type].set_index("split")
             values = [
@@ -234,7 +239,7 @@ def plot_model_comparison_metrics_by_split(
             ax.axhline(baseline, color=REFERENCE_LINE_COLOR, linestyle="--", linewidth=1)
         ax.set_xticks(x)
         ax.set_xticklabels([s.title() for s in splits])
-        ax.set_title(title)
+        ax.set_title(metric_title(title, higher_better=higher_better))
         ax.set_ylabel(title)
 
     axes[0].legend(loc="upper right", framealpha=0.9)
@@ -254,19 +259,19 @@ def plot_model_comparison_cross_sectional(
     model_order = _model_order(cs.index)
 
     metrics_to_plot = [
-        ("ic_overall", "IC (overall)", 0.0),
-        ("ic_mean_daily", "IC (mean daily)", 0.0),
-        ("top_decile_hit_rate", "Top-decile hit rate", 0.2),
+        ("ic_overall", "IC (overall)", 0.0, True),
+        ("ic_mean_daily", "IC (mean daily)", 0.0, True),
+        ("top_decile_hit_rate", "Top-decile hit rate", 0.2, True),
     ]
 
     fig, axes = plt.subplots(1, 3, figsize=(13, 5))
-    for ax, (key, title, baseline) in zip(axes, metrics_to_plot, strict=True):
+    for ax, (key, title, baseline, higher_better) in zip(axes, metrics_to_plot, strict=True):
         values = [float(cs.loc[m, key]) for m in model_order]
         colors = [MODEL_COLORS.get(m, "#7f7f7f") for m in model_order]
         bars = ax.bar([MODEL_LABELS.get(m, m) for m in model_order], values, color=colors)
         ax.bar_label(bars, fmt="%.3f", padding=3)
         ax.axhline(baseline, color=REFERENCE_LINE_COLOR, linestyle="--", linewidth=1)
-        ax.set_title(title)
+        ax.set_title(metric_title(title, higher_better=higher_better))
         ax.tick_params(axis="x", rotation=20)
 
     fig.suptitle("Experiment 1 — Cross-Sectional Ranking (Test)", fontweight="bold")
@@ -411,18 +416,18 @@ def plot_model_comparison_returns(
     model_order = _model_order(extremes.index)
 
     metrics_to_plot = [
-        ("top_decile_mean_return", "Top-decile mean forward return"),
-        ("top_minus_bottom", "Top − bottom decile spread"),
+        ("top_decile_mean_return", "Top-decile mean forward return", True),
+        ("top_minus_bottom", "Top − bottom decile spread", True),
     ]
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    for ax, (key, title) in zip(axes, metrics_to_plot, strict=True):
+    for ax, (key, title, higher_better) in zip(axes, metrics_to_plot, strict=True):
         values = [float(extremes.loc[m, key]) for m in model_order]
         colors = [MODEL_COLORS.get(m, "#7f7f7f") for m in model_order]
         bars = ax.bar([MODEL_LABELS.get(m, m) for m in model_order], values, color=colors)
         ax.bar_label(bars, fmt="%.4f", padding=3)
         ax.axhline(0.0, color=REFERENCE_LINE_COLOR, linestyle="--", linewidth=1)
-        ax.set_title(title)
+        ax.set_title(metric_title(title, higher_better=higher_better))
         ax.set_ylabel("Mean forward return")
         ax.tick_params(axis="x", rotation=20)
 
@@ -445,19 +450,19 @@ def plot_model_comparison_trading(
     model_order = _model_order(subset.index)
 
     metrics_to_plot = [
-        ("sharpe_ratio", "Sharpe ratio", "{:.2f}"),
-        ("annualized_return", "Annualized return", "{:.1%}"),
-        ("max_drawdown", "Max drawdown", "{:.1%}"),
+        ("sharpe_ratio", "Sharpe ratio", "{:.2f}", True),
+        ("annualized_return", "Annualized return", "{:.1%}", True),
+        ("max_drawdown", "Max drawdown", "{:.1%}", False),
     ]
 
     fig, axes = plt.subplots(1, 3, figsize=(14, 5))
-    for ax, (key, title, fmt) in zip(axes, metrics_to_plot, strict=True):
+    for ax, (key, title, fmt, higher_better) in zip(axes, metrics_to_plot, strict=True):
         values = [float(subset.loc[m, key]) for m in model_order]
         colors = [MODEL_COLORS.get(m, "#7f7f7f") for m in model_order]
         bars = ax.bar([MODEL_LABELS.get(m, m) for m in model_order], values, color=colors)
         ax.bar_label(bars, labels=[fmt.format(v) for v in values], padding=3)
         ax.axhline(0.0, color=REFERENCE_LINE_COLOR, linestyle="--", linewidth=1)
-        ax.set_title(title)
+        ax.set_title(metric_title(title, higher_better=higher_better))
         ax.tick_params(axis="x", rotation=20)
 
     fig.suptitle(
