@@ -1,0 +1,12 @@
+{
+  "target": "C_10d_absolute",
+  "target_col": "forward_return_10d",
+  "purge_horizon": 10,
+  "feature_columns": [
+    "atr_pct",
+    "return_5d",
+    "volatility_20d",
+    "price_sma10_ratio",
+    "stoch_d"
+  ]
+}

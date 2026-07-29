@@ -1,0 +1,227 @@
+{
+  "generated_at": "2026-07-29T02:12:29.397021+00:00",
+  "config_path": "configs/default.yaml",
+  "task": "regression",
+  "frozen_model": "xgboost",
+  "frozen_features": [
+    "atr_pct",
+    "return_5d",
+    "volatility_20d",
+    "price_sma10_ratio",
+    "stoch_d"
+  ],
+  "eval_horizon_days": 5,
+  "eval_return_col": "forward_return_5d",
+  "eval_label_col": "label",
+  "baseline_target": "A_5d_absolute",
+  "targets": {
+    "A_5d_absolute": {
+      "target_col": "forward_return_5d",
+      "purge_horizon": 5,
+      "description": "Absolute 5-day forward return (baseline)"
+    },
+    "B_3d_absolute": {
+      "target_col": "forward_return_3d",
+      "purge_horizon": 3,
+      "description": "Absolute 3-day forward return"
+    },
+    "C_10d_absolute": {
+      "target_col": "forward_return_10d",
+      "purge_horizon": 10,
+      "description": "Absolute 10-day forward return"
+    },
+    "D_5d_relative": {
+      "target_col": "forward_return_5d_rel",
+      "purge_horizon": 5,
+      "description": "Cross-sectional relative 5-day return (5d return minus within-date median 5d return)"
+    }
+  },
+  "winner": "A_5d_absolute",
+  "winner_rule": "test_sharpe -> ic_mean_daily(common_5d) -> top_decile_hit_rate(common_5d)",
+  "best_by_val_sharpe": "C_10d_absolute",
+  "materiality_thresholds": {
+    "delta_sharpe": 0.1,
+    "delta_annual_return": 0.02,
+    "delta_mean_daily_ic": 0.005
+  },
+  "strategy": {
+    "mode": "long_short",
+    "long_positions": 10,
+    "short_positions": 10,
+    "rebalance_frequency": "weekly"
+  },
+  "runs": [
+    {
+      "target": "A_5d_absolute",
+      "target_col": "forward_return_5d",
+      "purge_horizon": 5,
+      "run_id": "20260729_021206",
+      "n_features": 5,
+      "feature_columns": [
+        "atr_pct",
+        "return_5d",
+        "volatility_20d",
+        "price_sma10_ratio",
+        "stoch_d"
+      ],
+      "train_rows": 313337,
+      "val_rows": 57536,
+      "test_rows": 43848,
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": 0.0036608556400299364,
+          "sharpe_ratio": 0.08563159948624273,
+          "max_drawdown": 0.11337674320764096,
+          "win_rate": 0.48783185840707965,
+          "profit_factor": 1.0051036344828101,
+          "turnover": 0.7533980582524272,
+          "total_return": 0.007203658337262553,
+          "total_trades": 1808.0
+        },
+        "test": {
+          "annualized_return": 0.07172462780916522,
+          "sharpe_ratio": 0.6370341293076615,
+          "max_drawdown": 0.12147432344991219,
+          "win_rate": 0.49492753623188407,
+          "profit_factor": 1.082827191515333,
+          "turnover": 0.729375,
+          "total_return": 0.10918870458625296,
+          "total_trades": 1380.0
+        }
+      }
+    },
+    {
+      "target": "B_3d_absolute",
+      "target_col": "forward_return_3d",
+      "purge_horizon": 3,
+      "run_id": "20260729_021212",
+      "n_features": 5,
+      "feature_columns": [
+        "atr_pct",
+        "return_5d",
+        "volatility_20d",
+        "price_sma10_ratio",
+        "stoch_d"
+      ],
+      "train_rows": 313569,
+      "val_rows": 57768,
+      "test_rows": 43848,
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": -0.04220018371089229,
+          "sharpe_ratio": -0.49546836210785894,
+          "max_drawdown": 0.161768654957837,
+          "win_rate": 0.48660470202296335,
+          "profit_factor": 0.944087444033603,
+          "turnover": 0.7639423076923078,
+          "total_return": -0.08152012535495046,
+          "total_trades": 1829.0
+        },
+        "test": {
+          "annualized_return": 0.0006418005543520344,
+          "sharpe_ratio": 0.06336448002912329,
+          "max_drawdown": 0.10923342291619097,
+          "win_rate": 0.47368421052631576,
+          "profit_factor": 1.00071238092937,
+          "turnover": 0.7306250000000001,
+          "total_return": 0.000960306821627066,
+          "total_trades": 1387.0
+        }
+      }
+    },
+    {
+      "target": "C_10d_absolute",
+      "target_col": "forward_return_10d",
+      "purge_horizon": 10,
+      "run_id": "20260729_021217",
+      "n_features": 5,
+      "feature_columns": [
+        "atr_pct",
+        "return_5d",
+        "volatility_20d",
+        "price_sma10_ratio",
+        "stoch_d"
+      ],
+      "train_rows": 312757,
+      "val_rows": 56956,
+      "test_rows": 43848,
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": 0.07317306601716722,
+          "sharpe_ratio": 0.8780227232431286,
+          "max_drawdown": 0.053691112327321794,
+          "win_rate": 0.49541809851088203,
+          "profit_factor": 1.1098603408288907,
+          "turnover": 0.7411764705882353,
+          "total_return": 0.14719079357850373,
+          "total_trades": 1746.0
+        },
+        "test": {
+          "annualized_return": 0.06266226576784928,
+          "sharpe_ratio": 0.5579176232704678,
+          "max_drawdown": 0.11524930955454242,
+          "win_rate": 0.4966542750929368,
+          "profit_factor": 1.0775150423643511,
+          "turnover": 0.6943750000000001,
+          "total_return": 0.09518666212362126,
+          "total_trades": 1345.0
+        }
+      }
+    },
+    {
+      "target": "D_5d_relative",
+      "target_col": "forward_return_5d_rel",
+      "purge_horizon": 5,
+      "run_id": "20260729_021222",
+      "n_features": 5,
+      "feature_columns": [
+        "atr_pct",
+        "return_5d",
+        "volatility_20d",
+        "price_sma10_ratio",
+        "stoch_d"
+      ],
+      "train_rows": 313337,
+      "val_rows": 57536,
+      "test_rows": 43848,
+      "generalization_gap": "overfitting",
+      "trading": {
+        "val": {
+          "annualized_return": -0.054150859193294765,
+          "sharpe_ratio": -0.6267841433435326,
+          "max_drawdown": 0.1954040165209175,
+          "win_rate": 0.4900110987791343,
+          "profit_factor": 0.929602695939982,
+          "turnover": 0.7271844660194177,
+          "total_return": -0.10358884587712969,
+          "total_trades": 1802.0
+        },
+        "test": {
+          "annualized_return": -0.042731617440858516,
+          "sharpe_ratio": -0.3158257623702347,
+          "max_drawdown": 0.19888908419074552,
+          "win_rate": 0.4749455337690632,
+          "profit_factor": 0.9535760168989046,
+          "turnover": 0.71125,
+          "total_return": -0.0632453978265839,
+          "total_trades": 1377.0
+        }
+      }
+    }
+  ],
+  "data": {
+    "universe_file": "sp100_tickers.yaml",
+    "train_end_date": "2022-12-31",
+    "val_start_date": "2023-01-01",
+    "val_end_date": "2024-12-31",
+    "test_start_date": "2025-01-01"
+  },
+  "labels": {
+    "eval_horizon_days": 5,
+    "positive_quantile": 0.2,
+    "min_cross_section": 10
+  }
+}

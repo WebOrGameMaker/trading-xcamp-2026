@@ -24,7 +24,12 @@ from src.models.calibration import (
     fit_calibrators,
     save_calibrators,
 )
-from src.models.cross_sectional import evaluate_cross_sectional
+from src.models.cross_sectional import (
+    evaluate_cross_sectional,
+    information_coefficient,
+    mean_return_by_prediction_decile,
+    top_decile_hit_rate,
+)
 from src.models.evaluator import (
     compute_shap_importance,
     evaluate_classifier,
@@ -441,6 +446,9 @@ def _resolve_feature_columns(
 def train_model(
     config: AppConfig,
     feature_columns: list[str] | None = None,
+    dataset_name: str = "features",
+    target_col_override: str | None = None,
+    purge_horizon_override: int | None = None,
 ) -> None:
     """Train, evaluate, and persist a single pooled cross-sectional model.
 
@@ -448,6 +456,19 @@ def train_model(
         config: Application configuration.
         feature_columns: Optional explicit feature subset. When None, uses all
             numeric model features from the processed dataset.
+        dataset_name: Processed dataset base filename (without extension) to
+            load. Defaults to ``"features"``; Experiment 3 passes
+            ``"features_experiment3"`` to train on the multi-target panel
+            without touching the Experiment 1/2 dataset.
+        target_col_override: Regression-only. Forward-return column to fit
+            instead of the one implied by ``config.labels.horizon_days``. Lets
+            Experiment 3 swap prediction targets (e.g. ``forward_return_3d``,
+            ``forward_return_5d_rel``) while every other setting stays frozen.
+        purge_horizon_override: Regression-only. Number of trailing trading
+            dates purged from train/val, decoupled from
+            ``config.labels.horizon_days`` so it can match the *actual*
+            training target's horizon (e.g. 3 or 10) instead of the config
+            default.
     """
     if config.model.scope != "pooled":
         raise ValueError(
@@ -464,21 +485,34 @@ def train_model(
         raise ValueError(f"Unknown model.task: {config.model.task!r}; expected one of {VALID_TASKS}")
 
     if task == "regression":
-        _train_pooled_regressor(config, feature_columns=feature_columns)
+        _train_pooled_regressor(
+            config,
+            feature_columns=feature_columns,
+            dataset_name=dataset_name,
+            target_col_override=target_col_override,
+            purge_horizon_override=purge_horizon_override,
+        )
     else:
-        _train_pooled_classifier(config, feature_columns=feature_columns)
+        if target_col_override is not None or purge_horizon_override is not None:
+            raise ValueError(
+                "target_col_override/purge_horizon_override are regression-only"
+            )
+        _train_pooled_classifier(config, feature_columns=feature_columns, dataset_name=dataset_name)
 
 
 def _train_pooled_regressor(
     config: AppConfig,
     feature_columns: list[str] | None = None,
+    dataset_name: str = "features",
+    target_col_override: str | None = None,
+    purge_horizon_override: int | None = None,
 ) -> None:
     """Train a pooled tree regressor on continuous forward returns."""
-    dataset = load_processed_dataset("features")
+    dataset = load_processed_dataset(dataset_name)
     feature_columns = _resolve_feature_columns(dataset, feature_columns)
 
-    horizon = config.labels.horizon_days
-    ret_col = forward_return_column(horizon)
+    horizon = purge_horizon_override if purge_horizon_override is not None else config.labels.horizon_days
+    ret_col = target_col_override or forward_return_column(horizon)
     if ret_col not in dataset.columns:
         raise ValueError(f"Dataset missing forward-return column {ret_col}")
     if "label" not in dataset.columns:
@@ -552,7 +586,15 @@ def _train_pooled_regressor(
                 indent=2,
             )
 
-        pred_df = split_df[["date", "symbol", "close", ret_col, "label"]].copy()
+        # Carry every forward_return_* column present (not just ret_col) so
+        # archived predictions can always be re-scored against a common
+        # yardstick even when a model was trained on a different target
+        # (Experiment 3). For the default single-target dataset this is
+        # exactly [ret_col], identical to prior behavior.
+        available_targets = sorted(
+            c for c in split_df.columns if c.startswith("forward_return_")
+        )
+        pred_df = split_df[["date", "symbol", "close", *available_targets, "label"]].copy()
         # ``probability`` is the generic ranking score column used by IC / hit-rate.
         pred_df["probability"] = y_score
         pred_df["prediction"] = y_score
@@ -561,7 +603,18 @@ def _train_pooled_regressor(
         predictions[split_name] = pred_df
         save_processed_dataset(pred_df, name=f"predictions_{split_name}")
 
-        cs = evaluate_cross_sectional(pred_df)
+        # Explicit return_col=ret_col (the actual training target) rather than
+        # evaluate_cross_sectional's column-inference, which would otherwise
+        # be ambiguous once multiple forward_return_* columns are present.
+        cs = {
+            **information_coefficient(pred_df, score_col="probability", return_col=ret_col),
+            "top_decile_hit_rate": top_decile_hit_rate(
+                pred_df, score_col="probability", label_col="label"
+            ),
+            "mean_return_by_prediction_decile": mean_return_by_prediction_decile(
+                pred_df, score_col="probability", return_col=ret_col
+            ),
+        }
         split_block["cross_sectional"] = cs
         split_metrics[split_name] = split_block
         logger.info(
@@ -635,9 +688,10 @@ def _train_pooled_regressor(
 def _train_pooled_classifier(
     config: AppConfig,
     feature_columns: list[str] | None = None,
+    dataset_name: str = "features",
 ) -> None:
     """Train a pooled tree classifier on binary cross-sectional labels."""
-    dataset = load_processed_dataset("features")
+    dataset = load_processed_dataset(dataset_name)
     feature_columns = _resolve_feature_columns(dataset, feature_columns)
 
     horizon = config.labels.horizon_days

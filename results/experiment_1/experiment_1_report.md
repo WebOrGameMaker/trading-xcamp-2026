@@ -1,14 +1,14 @@
-# Experiment 1 — Model Family and Ranking Skill (Continuous Returns)
+# Experiment 1 — Model Family, Ranking Quality, and Strategy Performance
 
-**Status:** Complete (re-run). Tests H1 only. Trees predict continuous 5-day forward returns and rank by predicted return. Calibration and confidence-gated trading remain out of scope.
+**Status:** Complete. Tests H1 only. Trees predict continuous 5-day forward returns, rank by predicted return, and feed an identical weekly top-10 / bottom-10 long-short pipeline. Calibration and confidence-gated trading are out of scope.
 
-**Run manifest:** `[run_manifest.json](run_manifest.json)` · **Raw tables:** `[metrics_by_model_split.csv](metrics_by_model_split.csv)`, `[cross_sectional_by_model.csv](cross_sectional_by_model.csv)`, `[returns_by_model.csv](returns_by_model.csv)` · **Per-model artifacts:** `xgboost/`, `lightgbm/`, `random_forest/`
+**Run manifest:** [`run_manifest.json`](run_manifest.json) · **Tables:** [`metrics_by_model_split.csv`](metrics_by_model_split.csv), [`cross_sectional_by_model.csv`](cross_sectional_by_model.csv), [`trading_by_model.csv`](trading_by_model.csv), [`returns_by_model.csv`](returns_by_model.csv) · **Per-model artifacts:** `xgboost/`, `lightgbm/`, `random_forest/`, `catboost/`
 
 ---
 
 ## 1. Methodology
 
-**Universe.** S&P 100 (`configs/sp100_tickers.yaml`). 116 downloaded successfully; `BK` failed (Yahoo delist/history issue) and was excluded.
+**Universe.** S&P 100 (`configs/sp100_tickers.yaml`).
 
 **Data & splits.** Daily OHLCV, 2010-01-01 → present, calendar split per `configs/default.yaml`:
 
@@ -20,75 +20,69 @@ Last 5 trading dates of train/val purged so the 5-day-forward target cannot leak
 
 **Target.** Continuous `forward_return_5d` (`model.task: regression`). Binary top-20% labels are retained **only** as a hit-rate evaluation helper, not as the training target.
 
-**Features (19).** Same scale-free technical set as before (returns, price ratios, MACD, RSI, stochastics, BB width, ATR%, volatility, OBV z-score, volume ratio).
+**Features (19).** Scale-free technical set: returns, price/SMA and price/EMA ratios, MACD (price-normalized), RSI, stochastics, BB width, ATR%, volatility, OBV z-score, volume ratio.
 
-**Models.** Three pooled **regressors** (matched hyperparameters where possible):
+**Models.** Four pooled **regressors** (matched hyperparameters where possible):
 
 | Model | Key hyperparameters |
 | --- | --- |
 | XGBoost | `n_estimators=200, max_depth=6, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8` |
 | LightGBM | same as above |
 | Random Forest | `n_estimators=200, max_depth=10, min_samples_leaf=5` |
+| CatBoost | `n_estimators=200, max_depth=6, learning_rate=0.05` |
 
-All use `StandardScaler` → regressor. Ranking score = predicted forward return.
+All use `StandardScaler` → regressor. Ranking score = predicted forward return (stored in the `probability` column for the shared ranking/trading code path).
 
-**Evaluation.** RMSE / MAE / R² via `evaluate_regressor`; cross-sectional IC, top-decile hit rate, and mean return by prediction decile via `evaluate_cross_sectional`. Winner ranked by test IC (mean daily), then hit rate, then R².
-
----
-
-## 2. Metrics — regression fit, by model × split (test highlight)
-
-
-| Model | Split | RMSE | MAE | R² | ROC-AUC* | PR-AUC* |
-| --- | --- | --- | --- | --- | --- | --- |
-| XGBoost | **test** | 0.0476 | 0.0336 | −0.0099 | 0.518 | 0.240 |
-| LightGBM | **test** | 0.0476 | 0.0336 | −0.0090 | 0.523 | 0.240 |
-| Random Forest | **test** | 0.0474 | 0.0335 | −0.0038 | 0.531 | 0.243 |
-
-\*ROC-AUC / PR-AUC here score predicted return against the binary top-20% label (ranking helper only). Absolute R² is near zero / slightly negative OOS — expected for noisy daily equity returns; ranking metrics matter more for this strategy.
+**Evaluation.** Ranking metrics via `evaluate_cross_sectional`; identical `long_short` weekly backtest via `run_backtest_on_predictions`. Winner ranked by **test Sharpe**, then mean-daily IC, then top-decile hit rate.
 
 ---
 
-## 3. Metrics — cross-sectional ranking (test)
+## 2. Ranking metrics (test)
 
+| Model | IC (overall) | IC (mean daily) | IC IR | Top-decile hit rate | ROC-AUC* |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| XGBoost | 0.022 | 0.000 | 0.001 | 0.293 | 0.518 |
+| LightGBM | 0.028 | 0.004 | 0.024 | 0.288 | 0.523 |
+| Random Forest | **0.035** | **0.011** | **0.056** | 0.295 | **0.531** |
+| CatBoost | 0.029 | 0.006 | 0.033 | **0.299** | 0.526 |
 
-| Model | IC (overall) | IC (mean daily) | IC (std daily) | Top-decile hit rate |
-| --- | --- | --- | --- | --- |
-| XGBoost | 0.022 | 0.000 | 0.182 | 0.293 |
-| LightGBM | 0.028 | 0.004 | 0.186 | 0.288 |
-| Random Forest | **0.035** | **0.011** | 0.200 | **0.295** |
-
----
-
-## 4. Returns comparison (test)
-
-
-| Model | Top-decile mean return | Bottom-decile mean return | Top − bottom |
-| --- | --- | --- | --- |
-| XGBoost | 0.0104 | 0.0066 | 0.0038 |
-| LightGBM | 0.0099 | 0.0061 | 0.0038 |
-| Random Forest | **0.0107** | 0.0031 | **0.0077** |
-
-Figures: `figures/model_comparison_returns.png`, `figures/model_comparison_prediction_deciles.png`, `figures/model_comparison_cross_sectional.png`.
+\*ROC-AUC scores predicted return against the binary top-20% label (ranking helper only). Absolute OOS R² is near zero / slightly negative for all models.
 
 ---
 
-## 5. Is H1 supported?
+## 3. Trading performance (identical long-short pipeline)
 
-**H1:** At least one gradient-boosted model exceeds Random Forest on ranking-quality metrics.
+| Model | Val Sharpe | Test Sharpe | Test ann. return | Test max DD |
+| --- | ---: | ---: | ---: | ---: |
+| **XGBoost** | 0.90 | **−0.11** | −2.0% | 9.1% |
+| LightGBM | 0.68 | −0.11 | −2.1% | 10.3% |
+| Random Forest | 0.61 | −0.29 | −5.0% | 14.3% |
+| CatBoost | 0.86 | −0.48 | −7.4% | 18.7% |
 
-**Verdict: H1 is not supported.** Random Forest leads on test IC (mean daily 0.011), overall IC (0.035), top-decile hit rate (0.295), and top−bottom return spread (0.0077). LightGBM is second on IC; XGBoost is weakest. Boosted trees do not beat RF under these matched/untuned settings when predicting continuous returns.
-
-Absolute skill is modest (mean daily IC ≈ 0–0.01; hit rate ≈ 0.29 vs ~0.20 base rate). Train→test R² collapse (≈0.10 → ≤0) flags overfitting / regime shift; ranking metrics degrade less severely than fit R².
-
-**Recommendation:** Advance **Random Forest** for later experiments (soft call vs LightGBM on some secondary metrics).
+Every model is profitable on validation and loses on test. Win rates ≈ 47%; profit factors < 1 on test; turnover ≈ 0.6–0.7.
 
 ---
 
-## 6. Reproducing
+## 4. Is H1 supported?
 
-```
+**H1 alternative:** At least one model family is materially better on ranking and/or trading.
+
+**Verdict: Mixed, and not practically useful.**
+
+- Ranking: Random Forest leads mean-daily IC; differences vs XGBoost exceed the ΔIC ≥ 0.005 bar, but absolute skill is tiny (IC IR ≪ 0.1).
+- Trading: XGBoost wins by the pre-specified test-Sharpe rule, but only as the **least-negative** OOS result. XGBoost vs LightGBM on test Sharpe is noise (Δ ≈ 0.002). Larger gaps vs RF/CatBoost still leave all strategies losing money.
+- Ranking and trading disagree: RF ranks best, XGBoost trades “best.”
+- Val→test collapse for all models (all flagged `overfitting`) makes any single-slice winner fragile.
+
+**Recommendation:** Advance **XGBoost** for Experiment 2 because that is the frozen trading-winner rule — not because a profitable edge was found.
+
+---
+
+## 5. Reproducing
+
+```bash
 python scripts/run_experiment1.py
+python scripts/plot_experiment1.py
 ```
 
 Requires network only for tickers not already cached in `data/raw/`.

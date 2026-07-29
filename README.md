@@ -1,6 +1,6 @@
 # AI Trading Bot — trading-xcamp-2026
 
-An AI-powered stock trading system that predicts 5-day forward return direction for S&P 100 equities, ranks the universe weekly to run a market-neutral long/short strategy, backtests it with vectorbt, and executes paper trades via Alpaca.
+An AI-powered stock trading system that predicts continuous 5-day forward returns for S&P 100 equities, ranks the universe weekly to run a market-neutral long/short strategy, backtests it with vectorbt, and executes paper trades via Alpaca.
 
 ## Architecture
 
@@ -11,8 +11,8 @@ download → features → train → backtest → paper-trade → dashboard
 | Module | Path | Responsibility |
 |--------|------|----------------|
 | Data | `src/data/` | yfinance download, cleaning, parquet cache |
-| Features | `src/features/` | pandas-ta indicators, cross-sectional 5-day labels |
-| Models | `src/models/` | Pooled cross-sectional XGBoost / LightGBM / RF training & evaluation |
+| Features | `src/features/` | pandas-ta indicators, cross-sectional labels, feature-family maps |
+| Models | `src/models/` | Pooled cross-sectional XGBoost / LightGBM / RF / CatBoost training & evaluation |
 | Strategy | `src/strategy/` | Signal generation, risk limits, portfolio weights |
 | Backtesting | `src/backtesting/` | vectorbt engine, Sharpe / drawdown metrics |
 | Execution | `src/execution/` | Alpaca paper trading with dry-run mode |
@@ -60,7 +60,8 @@ python main.py --config configs/dev.yaml paper-trade --dry-run
 ```
 
 Full S&P 100 pipeline:
-# Full pipeline
+
+```bash
 python main.py pipeline
 
 # Or step by step
@@ -72,7 +73,21 @@ python main.py paper-trade --dry-run
 python main.py dashboard
 ```
 
-### 4. Tests
+### 4. Research Experiments
+
+```bash
+# Exp 1: model family comparison (XGB / LGBM / RF / CatBoost) + identical long-short backtests
+python scripts/run_experiment1.py
+python scripts/plot_experiment1.py
+
+# Exp 2: feature-family ablation + importance pruning (frozen XGBoost)
+python scripts/run_experiment2.py
+python scripts/plot_experiment2.py
+```
+
+Design and results: [`docs/research_presentation.md`](docs/research_presentation.md), [`results/experiment_1/experiment_1_report.md`](results/experiment_1/experiment_1_report.md), [`results/experiment_2/experiment_2_report.md`](results/experiment_2/experiment_2_report.md).
+
+### 5. Tests
 
 ```bash
 pytest tests/ -v
@@ -84,7 +99,7 @@ pytest tests/ -v
 |---------|-------------|
 | `download` | Fetch daily OHLCV for S&P 100 from yfinance |
 | `features` | Engineer indicators and cross-sectional 5-day labels |
-| `train` | Train one pooled regressor (xgboost, lightgbm, random_forest, catboost) on 5-day forward returns |
+| `train` | Train one pooled regressor (`xgboost`, `lightgbm`, `random_forest`, `catboost`) on 5-day forward returns |
 | `backtest` | Run vectorbt backtest on test period |
 | `paper-trade` | Rebalance paper portfolio (use `--dry-run` for safety) |
 | `dashboard` | Launch Streamlit monitoring UI |
@@ -101,7 +116,7 @@ Key parameters:
 - **Data:** 2010–present daily bars; train through 2022, validate 2023–2024, out-of-sample test from 2025
 - **Target:** Continuous 5-day forward return (`forward_return_5d`); models rank names by predicted return. Binary top-20% labels are retained only as a hit-rate evaluation helper (`labels.positive_quantile`).
 - **Model scope:** One pooled regressor trained on all tickers simultaneously (predicted returns are directly comparable for ranking)
-- **Strategy:** Weekly cross-sectional rank rebalance — long the top 10 symbols by predicted probability, short the bottom 10 (pure rank, no confidence gating), 50% gross long / 50% gross short (market-neutral)
+- **Strategy:** Weekly cross-sectional rank rebalance — long the top 10 symbols by predicted return score, short the bottom 10 (pure rank), 50% gross long / 50% gross short (market-neutral)
 - **Backtest:** $100k initial, 1 bps commission + 5 bps slippage
 
 ### Train / validation / test splits
@@ -112,21 +127,9 @@ Key parameters:
 - **Val** — `val_start_date`–`val_end_date` (2023–2024), similarly purged at the tail.
 - **Test** — everything from `test_start_date` (2025-01-01) onward. This is the true out-of-sample holdout that the weekly long/short backtest runs against (`predictions_test.parquet`); the model never sees this data during training.
 
-## Team Workflow (Suggested)
-
-| Student | Modules | Week |
-|---------|---------|------|
-| A | `src/data/`, configs | 1 |
-| B | `src/features/`, label tests | 1 |
-| C | `src/models/`, `src/strategy/` | 2 |
-| D | `src/backtesting/`, `src/execution/`, dashboard | 2–3 |
-| All | Integration, README, end-to-end testing | 3 |
-
-**Branch strategy:** feature branches off `main`, PR review before merge.
-
 ## Evaluation Metrics
 
-**Classification:** Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC
+**Regression / ranking helpers:** RMSE, MAE, R²; ROC-AUC / PR-AUC of predicted return vs binary top-20% label
 
 **Cross-sectional:** Information Coefficient (Spearman), top-decile hit rate, mean forward return by prediction decile
 
@@ -137,27 +140,28 @@ Key parameters:
 - S&P 100 list is point-in-time approximate (survivorship bias)
 - Daily bars only (no intraday)
 - Paper trading only — no live money
-- High classification accuracy does not guarantee profitability
+- Strong ranking/classification metrics do not guarantee profitability
 - The long/short backtest applies symmetric commission/slippage bps to both legs but does not model short borrow fees, hard-to-borrow constraints, or margin interest
-- A legacy long-only, threshold-gated mode (`strategy.mode: long_only`) is retained in the code for comparison but is not the default
+- Completed research experiments (Exp 1–2) find weak absolute OOS skill and val→test instability; see the experiment reports
 
 ## Project Structure
 
 ```
 src/
   data/          # download, clean, cache
-  features/      # indicators + labels
+  features/      # indicators, labels, feature families
   models/        # train, evaluate, persist
   strategy/      # signals, risk, portfolio
   backtesting/   # vectorbt + metrics
   execution/     # Alpaca paper trading
   dashboard/     # Streamlit app
+  visualization/ # Experiment 1/2 comparison figures
   utils/         # config, logging, paths
+scripts/         # run_experiment1.py, run_experiment2.py, plot helpers
 tests/
 configs/
-models/          # gitignored — saved models
-data/            # gitignored — parquet cache
-logs/            # gitignored — eval reports
+docs/            # research presentation
+results/         # experiment outputs and reports
 main.py
 ```
 

@@ -1,0 +1,22 @@
+{
+  "val": {
+    "annualized_return": 0.07317306601716722,
+    "sharpe_ratio": 0.8780227232431286,
+    "max_drawdown": 0.053691112327321794,
+    "win_rate": 0.49541809851088203,
+    "profit_factor": 1.1098603408288907,
+    "turnover": 0.7411764705882353,
+    "total_return": 0.14719079357850373,
+    "total_trades": 1746.0
+  },
+  "test": {
+    "annualized_return": 0.06266226576784928,
+    "sharpe_ratio": 0.5579176232704678,
+    "max_drawdown": 0.11524930955454242,
+    "win_rate": 0.4966542750929368,
+    "profit_factor": 1.0775150423643511,
+    "turnover": 0.6943750000000001,
+    "total_return": 0.09518666212362126,
+    "total_trades": 1345.0
+  }
+}

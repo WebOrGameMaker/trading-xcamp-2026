@@ -34,6 +34,43 @@ def compute_forward_returns(
     return labeled
 
 
+def compute_relative_forward_returns(
+    df: pd.DataFrame,
+    horizon_days: int = 5,
+    close_col: str = "close",
+) -> pd.DataFrame:
+    """Compute cross-sectional relative (median-demeaned) forward returns.
+
+    For each trading date, subtracts the within-date median absolute forward
+    return from every stock's own forward return. This isolates the part of
+    the return that separates winners from losers within a rebalance period
+    (the market/day-common component cancels in a dollar-neutral long-short
+    book anyway), which changes the *regression loss geometry* without
+    changing the horizon.
+
+    Requires the pooled panel (multiple symbols per date) already carrying the
+    absolute forward-return column for ``horizon_days``; computes it via
+    ``compute_forward_returns`` first if missing.
+
+    Args:
+        df: Pooled panel with date, symbol, and close columns.
+        horizon_days: Horizon used to select/compute the forward-return column.
+        close_col: Name of close price column.
+
+    Returns:
+        DataFrame with a ``forward_return_{horizon}d_rel`` column added.
+    """
+    ret_col = forward_return_column(horizon_days)
+    frame = df if ret_col in df.columns else compute_forward_returns(
+        df, horizon_days=horizon_days, close_col=close_col
+    )
+    rel_col = f"{ret_col}_rel"
+    labeled = frame.copy()
+    medians = labeled.groupby("date")[ret_col].transform("median")
+    labeled[rel_col] = labeled[ret_col] - medians
+    return labeled
+
+
 def assign_cross_sectional_labels(
     df: pd.DataFrame,
     horizon_days: int = 5,
