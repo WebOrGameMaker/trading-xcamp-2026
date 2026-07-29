@@ -11,7 +11,7 @@ download → features → train → backtest → paper-trade → dashboard
 | Module | Path | Responsibility |
 |--------|------|----------------|
 | Data | `src/data/` | yfinance download, cleaning, parquet cache |
-| Features | `src/features/` | pandas-ta indicators, cross-sectional labels, feature-family maps |
+| Features | `src/features/` | pandas-ta indicators, cross-sectional labels, feature-family maps, Exp 3 multi-target panel |
 | Models | `src/models/` | Pooled cross-sectional XGBoost / LightGBM / RF / CatBoost training & evaluation |
 | Strategy | `src/strategy/` | Signal generation, risk limits, portfolio weights |
 | Backtesting | `src/backtesting/` | vectorbt engine, Sharpe / drawdown metrics |
@@ -83,9 +83,20 @@ python scripts/plot_experiment1.py
 # Exp 2: feature-family ablation + importance pruning (frozen XGBoost)
 python scripts/run_experiment2.py
 python scripts/plot_experiment2.py
+
+# Exp 3: target / label engineering (frozen XGBoost + Exp 2 top-5 features)
+python scripts/run_experiment3.py
 ```
 
-Design and results: [`docs/research_presentation.md`](docs/research_presentation.md), [`results/experiment_1/experiment_1_report.md`](results/experiment_1/experiment_1_report.md), [`results/experiment_2/experiment_2_report.md`](results/experiment_2/experiment_2_report.md).
+Design and results: [`docs/research_presentation.md`](docs/research_presentation.md), [`results/experiment_1/experiment_1_report.md`](results/experiment_1/experiment_1_report.md), [`results/experiment_2/experiment_2_report.md`](results/experiment_2/experiment_2_report.md), [`results/experiment_3/experiment_report.md`](results/experiment_3/experiment_report.md).
+
+**Headline results (completed):**
+
+| Experiment | Question | Winner / recommendation |
+|------------|----------|-------------------------|
+| Exp 1 (H1) | Which model family? | XGBoost (least-bad OOS trader; all models lost money on full features) |
+| Exp 2 (H2) | Which features? | `top5` by test Sharpe (fragile val→test); prefer returns+volatility for coherence |
+| Exp 3 (H3) | Which prediction target? | Keep absolute 5-day; 10d ranks better but does not trade better; 3d and CS-relative worse |
 
 ### 5. Tests
 
@@ -114,7 +125,7 @@ pytest tests/ -v
 Key parameters:
 
 - **Data:** 2010–present daily bars; train through 2022, validate 2023–2024, out-of-sample test from 2025
-- **Target:** Continuous 5-day forward return (`forward_return_5d`); models rank names by predicted return. Binary top-20% labels are retained only as a hit-rate evaluation helper (`labels.positive_quantile`).
+- **Target:** Continuous 5-day forward return (`forward_return_5d`); models rank names by predicted return. Binary top-20% labels are retained only as a hit-rate evaluation helper (`labels.positive_quantile`). Experiment 3 confirmed keeping this target over 3-day, 10-day, and cross-sectional-relative alternatives.
 - **Model scope:** One pooled regressor trained on all tickers simultaneously (predicted returns are directly comparable for ranking)
 - **Strategy:** Weekly cross-sectional rank rebalance — long the top 10 symbols by predicted return score, short the bottom 10 (pure rank), 50% gross long / 50% gross short (market-neutral)
 - **Backtest:** $100k initial, 1 bps commission + 5 bps slippage
@@ -142,26 +153,26 @@ Key parameters:
 - Paper trading only — no live money
 - Strong ranking/classification metrics do not guarantee profitability
 - The long/short backtest applies symmetric commission/slippage bps to both legs but does not model short borrow fees, hard-to-borrow constraints, or margin interest
-- Completed research experiments (Exp 1–2) find weak absolute OOS skill and val→test instability; see the experiment reports
+- Completed research experiments (Exp 1–3) find weak absolute OOS skill and val→test instability; model family, feature subset, and target engineering each move metrics, but only feature selection produced a clear trading-side lift under the frozen weekly long/short pipeline — and that lift remains fragile. See the experiment reports.
 
 ## Project Structure
 
 ```
 src/
   data/          # download, clean, cache
-  features/      # indicators, labels, feature families
+  features/      # indicators, labels, feature families, Exp 3 multi-target panel
   models/        # train, evaluate, persist
   strategy/      # signals, risk, portfolio
   backtesting/   # vectorbt + metrics
   execution/     # Alpaca paper trading
   dashboard/     # Streamlit app
-  visualization/ # Experiment 1/2 comparison figures
+  visualization/ # Experiment 1/2/3 comparison figures
   utils/         # config, logging, paths
-scripts/         # run_experiment1.py, run_experiment2.py, plot helpers
+scripts/         # run_experiment1/2/3.py, plot helpers
 tests/
 configs/
 docs/            # research presentation
-results/         # experiment outputs and reports
+results/         # experiment outputs and reports (experiment_1/2/3)
 main.py
 ```
 
